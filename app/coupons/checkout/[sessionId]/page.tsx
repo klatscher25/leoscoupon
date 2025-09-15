@@ -42,6 +42,12 @@ interface PointsBreakdown {
   categories: { name: string; multiplier: number; type: string }[];
 }
 
+interface CumulativeMultipliers {
+  einkauf: number;
+  warengruppen: { [key: string]: number };
+  artikel: { [key: string]: number };
+}
+
 const CheckoutPage = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -51,12 +57,14 @@ const CheckoutPage = () => {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<RedemptionSession | null>(null);
   const [coupons, setCoupons] = useState<CouponDisplay[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(-1); // -1 = PAYBACK Card, 0+ = Coupons
+  const [currentIndex, setCurrentIndex] = useState(-2); // -2 = Overview, -1 = PAYBACK Card, 0+ = Coupons
   const [isCompleting, setIsCompleting] = useState(false);
   const [swipeStartX, setSwipeStartX] = useState(0);
   const [swipeCurrentX, setSwipeCurrentX] = useState(0);
   const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown | null>(null);
+  const [cumulativeMultipliers, setCumulativeMultipliers] = useState<CumulativeMultipliers | null>(null);
   const [screenWakeLock, setScreenWakeLock] = useState<any>(null);
+  const [barcodeType, setBarcodeType] = useState<'barcode' | 'qr'>('barcode');
   
   const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponentClient();
@@ -146,6 +154,7 @@ const CheckoutPage = () => {
       
       // Berechne Punkte-Breakdown
       calculatePointsBreakdown(formattedCoupons);
+      calculateCumulativeMultipliers(formattedCoupons);
     } catch (error) {
       console.error('Fehler beim Laden der Session:', error);
       router.push('/coupons/redeem');
@@ -188,6 +197,51 @@ const CheckoutPage = () => {
     });
   };
 
+  const calculateCumulativeMultipliers = (couponList: CouponDisplay[]) => {
+    let einkaufTotal = 1; // Basis 1x
+    const warengruppen: { [key: string]: number } = {};
+    const artikel: { [key: string]: number } = {};
+
+    // Basis-Einkauf-Multiplikator von Einkauf-Coupons
+    couponList.forEach(coupon => {
+      if (coupon.category === 'einkauf') {
+        einkaufTotal += (coupon.value_amount || 20) / 100; // z.B. 20% = 0.2x zusätzlich
+      }
+    });
+
+    // Warengruppen kumulativ (Einkauf + Warengruppe)
+    couponList.forEach(coupon => {
+      if (coupon.category === 'warengruppe') {
+        const warengruppeBonus = (coupon.value_amount || 20) / 100; // z.B. 20x = 20
+        warengruppen[coupon.category_name] = einkaufTotal + warengruppeBonus;
+      }
+    });
+
+    // Artikel kumulativ (Einkauf + Warengruppe + Artikel)
+    couponList.forEach(coupon => {
+      if (coupon.category === 'artikel') {
+        const artikelBonus = (coupon.value_amount || 10) / 100; // z.B. 10x = 10
+        // Finde passende Warengruppe für diesen Artikel
+        const entsprechendeWarengruppe = Object.keys(warengruppen).find(name => 
+          coupon.category_name.toLowerCase().includes(name.toLowerCase()) ||
+          name.toLowerCase().includes(coupon.category_name.toLowerCase())
+        );
+        
+        const basisMultiplier = entsprechendeWarengruppe 
+          ? warengruppen[entsprechendeWarengruppe] 
+          : einkaufTotal;
+          
+        artikel[coupon.category_name] = basisMultiplier + artikelBonus;
+      }
+    });
+
+    setCumulativeMultipliers({
+      einkauf: einkaufTotal,
+      warengruppen,
+      artikel
+    });
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     setSwipeStartX(e.touches[0].clientX);
     setSwipeCurrentX(e.touches[0].clientX);
@@ -220,7 +274,7 @@ const CheckoutPage = () => {
   };
 
   const handlePrevious = () => {
-    if (currentIndex > -1) {
+    if (currentIndex > -2) {
       setCurrentIndex(prev => prev - 1);
     }
   };
@@ -265,7 +319,36 @@ const CheckoutPage = () => {
     }
   };
 
-  const generateEnhancedBarcode = (type: string, value: string) => {
+  const generateEnhancedBarcode = (value: string) => {
+    if (barcodeType === 'qr') {
+      return (
+        <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
+          <div className="text-center">
+            <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
+              {value}
+            </div>
+            {/* QR Code Simulation */}
+            <div className="flex justify-center mb-4">
+              <div className="grid grid-cols-21 gap-0.5 w-40 h-40">
+                {Array.from({ length: 441 }, (_, i) => (
+                  <div
+                    key={i}
+                    className={`${
+                      Math.random() > 0.5 ? 'bg-black' : 'bg-white'
+                    } aspect-square`}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="text-xs text-gray-500 mt-2">
+              QR-Code zum Scannen bereithalten
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Standard Barcode
     return (
       <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
         <div className="text-center">
@@ -285,11 +368,8 @@ const CheckoutPage = () => {
               />
             ))}
           </div>
-          <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
-            {type}
-          </div>
           <div className="text-xs text-gray-500 mt-2">
-            Zum Scannen bereithalten
+            Barcode zum Scannen bereithalten
           </div>
         </div>
       </div>
@@ -334,7 +414,7 @@ const CheckoutPage = () => {
         </div>
         
         {/* Enhanced Barcode */}
-        {generateEnhancedBarcode('CODE128', session?.payback_card_code || '')}
+        {generateEnhancedBarcode(session?.payback_card_code || '')}
         
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500 mb-1">Kartennummer</p>
@@ -423,7 +503,7 @@ const CheckoutPage = () => {
         </div>
         
         {/* Enhanced Barcode */}
-        {generateEnhancedBarcode(coupon.barcode_type, coupon.barcode_value)}
+        {generateEnhancedBarcode(coupon.barcode_value)}
         
         {/* Category Bonus Info */}
         {pointsBreakdown && (
@@ -499,12 +579,38 @@ const CheckoutPage = () => {
               <p className="text-xs text-gray-600">{session.store.name}</p>
             </div>
           </div>
-          <button
-            onClick={() => router.back()}
-            className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
-          >
-            <span className="text-gray-600 text-lg">✕</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Barcode Type Switcher */}
+            <div className="flex bg-gray-100 rounded-full p-1">
+              <button
+                onClick={() => setBarcodeType('barcode')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  barcodeType === 'barcode' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                Barcode
+              </button>
+              <button
+                onClick={() => setBarcodeType('qr')}
+                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                  barcodeType === 'qr' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                QR-Code
+              </button>
+            </div>
+            
+            <button
+              onClick={() => router.back()}
+              className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
+            >
+              <span className="text-gray-600 text-lg">✕</span>
+            </button>
+          </div>
         </div>
       </div>
 
