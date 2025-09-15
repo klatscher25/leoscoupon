@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { Database } from './database.types'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -12,7 +12,7 @@ function isSafariIOS(): boolean {
 }
 
 // SINGLETON CLIENT PATTERN - verhindert Multiple GoTrueClient instances
-let clientInstance: ReturnType<typeof createClient<Database>> | null = null
+let clientInstance: SupabaseClient<Database> | null = null
 
 // Nur echten Client erstellen wenn Environment Variables verfügbar
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
@@ -25,34 +25,50 @@ export const createClientComponentClient = () => {
         // iOS Safari specific settings
         ...(isSafariIOS() && {
           storage: {
-            // Use memory storage as fallback for iOS Safari
+            // Enhanced storage handling for iOS Safari
             getItem: (key: string) => {
               try {
-                return localStorage.getItem(key)
-              } catch {
-                console.log('📱 iOS localStorage blocked, using memory fallback')
+                // Try localStorage first
+                const value = localStorage.getItem(key)
+                if (value !== null) {
+                  return value
+                }
+                // Fallback to sessionStorage for iOS
+                return sessionStorage.getItem(key)
+              } catch (error) {
+                console.log('📱 iOS storage blocked for key:', key, error)
                 return null
               }
             },
             setItem: (key: string, value: string) => {
               try {
+                // Try both localStorage and sessionStorage for iOS reliability
                 localStorage.setItem(key, value)
-              } catch {
-                console.log('📱 iOS localStorage blocked for key:', key)
+                sessionStorage.setItem(key, value)
+              } catch (error) {
+                try {
+                  // Fallback to sessionStorage only
+                  sessionStorage.setItem(key, value)
+                } catch (error2) {
+                  console.log('📱 iOS all storage blocked for key:', key, error2)
+                }
               }
             },
             removeItem: (key: string) => {
               try {
                 localStorage.removeItem(key)
-              } catch {
-                console.log('📱 iOS localStorage blocked for removal:', key)
+                sessionStorage.removeItem(key)
+              } catch (error) {
+                console.log('📱 iOS storage removal blocked for key:', key, error)
               }
             },
           },
-          // Shorter timeouts for iOS
+          // iOS optimized settings
           detectSessionInUrl: false, // Prevent iOS Safari issues with URL fragments
           persistSession: true,
           autoRefreshToken: true,
+          // More secure auth flow for iOS stability
+          flowType: 'pkce' as const, // More secure and reliable for iOS
         }),
         // Default settings for other browsers
         ...(!isSafariIOS() && {

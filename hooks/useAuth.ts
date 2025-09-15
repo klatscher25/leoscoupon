@@ -160,8 +160,28 @@ export function useAuth() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('🔍 Auth state changed:', event)
+      
+      // iOS Safari: Add delay for auth state changes to prevent race conditions
+      if (isSafariIOS() && event === 'SIGNED_IN') {
+        console.log('📱 iOS Safari SIGNED_IN - adding stability delay...')
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+      
       try {
         if (session?.user) {
+          console.log('🔍 Processing session with user:', session.user.id)
+          
+          // iOS Safari: Ensure session persistence
+          if (isSafariIOS()) {
+            // Force session storage refresh for iOS
+            try {
+              await supabase.auth.getSession()
+              console.log('📱 iOS: Session refreshed successfully')
+            } catch (error) {
+              console.warn('📱 iOS: Session refresh warning:', error)
+            }
+          }
+          
           // Get profile with error handling
           const { data: profile, error: profileError } = await supabase
             .from('profiles')
@@ -178,6 +198,7 @@ export function useAuth() {
               loading: false
             })
           } else {
+            console.log('🔍 Setting auth state with profile:', profile?.username)
             setAuthState({
               user: session.user,
               profile,
@@ -185,6 +206,7 @@ export function useAuth() {
             })
           }
         } else {
+          console.log('🔍 No session user - clearing auth state')
           setAuthState({
             user: null,
             profile: null,
@@ -193,6 +215,15 @@ export function useAuth() {
         }
       } catch (error) {
         console.error('Auth change error:', error)
+        
+        // iOS Safari specific error handling
+        if (isSafariIOS()) {
+          console.log('📱 iOS Auth change error - applying fixes...')
+          localStorage.clear()
+          sessionStorage.clear()
+          clearSupabaseCache()
+        }
+        
         setAuthState({
           user: null,
           profile: null,

@@ -49,11 +49,34 @@ export default function LoginPage() {
 
     try {
       console.log('🔐 Starting login process...')
+      
+      // iOS Safari spezifische Vorab-Optimierung
+      if (isMobileSafari) {
+        console.log('📱 iOS Safari detected - applying optimizations...')
+        // Kurze Verzögerung für iOS Safari um Session-Race-Conditions zu vermeiden
+        await new Promise(resolve => setTimeout(resolve, 100))
+      }
+      
       const result = await signIn(email, password)
       console.log('✅ Login successful:', !!result.user)
       
-      // Don't redirect here - let useAuth hook handle it to prevent race condition
-      // router.push('/dashboard') - REMOVED to prevent double redirect
+      if (result.user) {
+        // iOS Safari: Ensure session is properly stored before redirect
+        if (isMobileSafari) {
+          console.log('📱 iOS: Ensuring session persistence...')
+          // Extra delay for iOS to ensure session is stored
+          await new Promise(resolve => setTimeout(resolve, 200))
+          
+          // Force session refresh for iOS
+          if (typeof window !== 'undefined') {
+            const event = new Event('supabase.auth.token_refreshed')
+            window.dispatchEvent(event)
+          }
+        }
+        
+        // Successful login - wait for useAuth hook to handle redirect
+        console.log('🔄 Login successful, waiting for auth hook redirect...')
+      }
       
     } catch (err: any) {
       console.error('❌ Login error:', err)
@@ -61,16 +84,51 @@ export default function LoginPage() {
       
       let errorMessage = err.message || 'Anmeldung fehlgeschlagen'
       
-      // Provide helpful error messages and retry logic
+      // iOS Safari specific error handling
+      if (isMobileSafari) {
+        console.log('📱 iOS Login error detected, applying iOS-specific fixes...')
+        
+        // Common iOS Safari issues
+        if (err.message?.includes('Failed to fetch') || 
+            err.message?.includes('NetworkError') ||
+            err.message?.includes('The operation couldn\'t be completed') ||
+            retryCount === 0) {
+          
+          errorMessage = 'iOS Safari Verbindungsproblem. Optimierung wird angewendet...';
+          
+          // Clear all storage and try aggressive cache clearing
+          localStorage.clear()
+          sessionStorage.clear()
+          clearSupabaseCache()
+          
+          // Clear service worker cache if available
+          if ('caches' in window) {
+            caches.keys().then(cacheNames => {
+              cacheNames.forEach(cacheName => {
+                caches.delete(cacheName)
+              })
+            }).catch(console.warn)
+          }
+          
+          setTimeout(() => {
+            setError('Optimierung abgeschlossen. Bitte erneut versuchen.')
+            setLoading(false)
+            setRetryCount(0)
+          }, 1500)
+          
+          return // Don't continue with normal error handling
+        }
+      }
+      
+      // Normal error handling
       if (err.message?.includes('timeout')) {
         if (isMobileSafari) {
-          errorMessage = 'Safari iOS Timeout. Lade Seite neu...';
-          // iOS specific handling
+          errorMessage = 'Safari iOS Timeout. Seite wird neu geladen...';
           localStorage.clear()
           sessionStorage.clear()
           clearSupabaseCache()
           setTimeout(() => {
-            window.location.href = window.location.href // Hard reload for iOS
+            window.location.href = window.location.href
           }, 1000)
         } else {
           errorMessage = 'Verbindung zeitüberschritten. Cache wird geleert...';
@@ -82,8 +140,7 @@ export default function LoginPage() {
       } else if (err.message?.includes('Invalid login credentials')) {
         errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfe E-Mail und Passwort.'
       } else if (retryCount >= 1 && isMobileSafari) {
-        // iOS Safari fails faster, so retry earlier
-        errorMessage = 'Safari iOS Problem. Seite wird neu geladen...';
+        errorMessage = 'Safari iOS Problem. Harter Neustart...';
         localStorage.clear()
         sessionStorage.clear()
         clearSupabaseCache()
@@ -91,18 +148,16 @@ export default function LoginPage() {
           window.location.href = window.location.href
         }, 1000)
       } else if (retryCount >= 2) {
-        errorMessage = 'Mehrere Versuche fehlgeschlagen. Cache wird geleert...';
+        errorMessage = 'Mehrere Versuche fehlgeschlagen. Seite wird neu geladen...';
         clearSupabaseCache()
         setTimeout(() => {
-          setError('Seite wird neu geladen...')
           window.location.reload()
         }, 2000)
       }
       
       setError(errorMessage)
-      setLoading(false) // Only set loading to false on error
+      setLoading(false)
     }
-    // Don't set loading to false on success - let redirect handle it
   }
 
   return (
