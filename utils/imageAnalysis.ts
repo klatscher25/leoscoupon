@@ -109,38 +109,59 @@ export class ImageAnalyzer {
 
   private async detectBarcode(canvas: HTMLCanvasElement): Promise<{value: string, format: string} | null> {
     try {
-      const imageData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+      console.log('🔍 Starting barcode detection on canvas:', canvas.width, 'x', canvas.height)
       
       // Try multiple approaches for better detection
       const approaches = [
-        // Original resolution
-        () => this.barcodeReader.decodeFromImageData(imageData),
-        // Enhanced contrast
-        () => this.detectWithEnhancedContrast(canvas),
-        // Grayscale conversion
-        () => this.detectWithGrayscale(canvas)
+        {
+          name: 'Original Image',
+          fn: () => this.detectFromOriginal(canvas)
+        },
+        {
+          name: 'Enhanced Contrast',
+          fn: () => this.detectWithEnhancedContrast(canvas)
+        },
+        {
+          name: 'Grayscale',
+          fn: () => this.detectWithGrayscale(canvas)
+        },
+        {
+          name: 'High Contrast',
+          fn: () => this.detectWithHighContrast(canvas)
+        },
+        {
+          name: 'Inverted Colors',
+          fn: () => this.detectWithInvertedColors(canvas)
+        }
       ]
 
       for (const approach of approaches) {
         try {
-          const result = await approach()
+          console.log(`📷 Trying ${approach.name} detection...`)
+          const result = await approach.fn()
           if (result) {
+            console.log(`✅ Barcode found with ${approach.name}:`, result.getText())
             return {
               value: result.getText(),
               format: result.getBarcodeFormat().toString()
             }
           }
         } catch (e) {
-          // Continue to next approach
-          console.log('Trying next barcode detection approach...')
+          console.log(`❌ ${approach.name} failed:`, e)
         }
       }
 
+      console.log('❌ All barcode detection approaches failed')
       return null
     } catch (error) {
-      console.log('Barcode detection failed:', error)
+      console.log('❌ Barcode detection error:', error)
       return null
     }
+  }
+
+  private async detectFromOriginal(canvas: HTMLCanvasElement) {
+    const imageData = canvas.getContext('2d')!.getImageData(0, 0, canvas.width, canvas.height)
+    return this.barcodeReader.decodeFromImageData(imageData)
   }
 
   private async detectWithEnhancedContrast(canvas: HTMLCanvasElement) {
@@ -170,6 +191,39 @@ export class ImageAnalyzer {
       data[i] = gray     // R
       data[i + 1] = gray // G
       data[i + 2] = gray // B
+    }
+
+    return this.barcodeReader.decodeFromImageData(imageData)
+  }
+
+  private async detectWithHighContrast(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d')!
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+
+    // High contrast enhancement
+    const factor = 2.0
+    const intercept = 128 * (1 - factor)
+    
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = Math.min(255, Math.max(0, data[i] * factor + intercept))     // R
+      data[i + 1] = Math.min(255, Math.max(0, data[i + 1] * factor + intercept)) // G
+      data[i + 2] = Math.min(255, Math.max(0, data[i + 2] * factor + intercept)) // B
+    }
+
+    return this.barcodeReader.decodeFromImageData(imageData)
+  }
+
+  private async detectWithInvertedColors(canvas: HTMLCanvasElement) {
+    const ctx = canvas.getContext('2d')!
+    const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+    const data = imageData.data
+
+    // Invert colors (sometimes barcodes are white on dark background)
+    for (let i = 0; i < data.length; i += 4) {
+      data[i] = 255 - data[i]         // R
+      data[i + 1] = 255 - data[i + 1] // G
+      data[i + 2] = 255 - data[i + 2] // B
     }
 
     return this.barcodeReader.decodeFromImageData(imageData)
@@ -219,11 +273,45 @@ export const detectStoreFromBarcode = (barcode: string): string | null => {
     'ROSSMANN': /^407890/
   }
 
+  console.log('🔍 detectStoreFromBarcode - Testing barcode:', barcode)
+  
   for (const [store, pattern] of Object.entries(patterns)) {
+    console.log(`🔍 Testing ${store} pattern:`, pattern.source)
     if (pattern.test(barcode)) {
+      console.log(`✅ Store ${store} matched!`)
       return store
     }
   }
+  
+  console.log('❌ No store pattern matched')
+  return null
+}
+
+// Fallback: Detect store from OCR text
+export const detectStoreFromText = (text: string): string | null => {
+  const storeKeywords = {
+    'EDEKA': ['edeka', 'e center', 'netto'],
+    'REWE': ['rewe', 'nahkauf'],
+    'ALDI': ['aldi', 'aldi süd', 'aldi nord'],
+    'LIDL': ['lidl', 'lidl plus'],
+    'PENNY': ['penny'],
+    'dm': ['dm', 'dm-drogerie', 'drogerie markt'],
+    'ROSSMANN': ['rossmann']
+  }
+
+  const lowerText = text.toLowerCase()
+  console.log('🔍 detectStoreFromText - Analyzing text:', lowerText.substring(0, 100))
+  
+  for (const [store, keywords] of Object.entries(storeKeywords)) {
+    for (const keyword of keywords) {
+      if (lowerText.includes(keyword)) {
+        console.log(`✅ Store ${store} detected from text keyword: ${keyword}`)
+        return store
+      }
+    }
+  }
+  
+  console.log('❌ No store detected from text')
   return null
 }
 

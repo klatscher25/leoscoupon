@@ -97,12 +97,16 @@ export default function CouponPhotoUpload({
       
       if (result.barcode) {
         console.log('📷 Real barcode detected:', result.barcode)
-        setAnalysisStatus('Barcode erkannt! Extrahiere Text...')
+        setAnalysisStatus(`Barcode erkannt: ${result.barcode.value}`)
         
         // Auto-detect store from real barcode
         const detectedStore = detectStoreFromBarcode(result.barcode.value)
         if (detectedStore) {
           console.log('🏪 Store detected:', detectedStore)
+          setAnalysisStatus(`Store erkannt: ${detectedStore} - Extrahiere Text...`)
+        } else {
+          console.log('🏪 No store matched for barcode:', result.barcode.value)
+          setAnalysisStatus('Barcode erkannt, aber Store nicht zugeordnet. Extrahiere Text...')
         }
         
         onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())

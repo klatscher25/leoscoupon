@@ -14,11 +14,11 @@ import {
   PhotoIcon,
   QrCodeIcon
 } from '@heroicons/react/24/outline'
-import CouponPhotoUpload from '@/components/admin/CouponPhotoUpload'
+import HybridCouponUpload from '@/components/admin/HybridCouponUpload'
 import BarcodeScanner from '@/components/admin/BarcodeScanner'
 import CameraDiagnostics from '@/components/admin/CameraDiagnostics'
 import { Database } from '@/lib/database.types'
-import { parseCouponText as parseExtractedText } from '@/utils/imageAnalysis'
+import { parseCouponText as parseExtractedText, detectStoreFromText } from '@/utils/imageAnalysis'
 
 type Coupon = Database['public']['Tables']['coupons']['Row'] & {
   store: Database['public']['Tables']['stores']['Row'] | null
@@ -194,7 +194,7 @@ export default function AdminCouponsPage() {
   }
 
   const handleBarcodeDetected = (barcode: string, type: string) => {
-    console.log('📷 Barcode detected:', { barcode, type })
+    console.log('📷 Barcode detected in form handler:', { barcode, type })
     
     // Auto-fill barcode fields
     setFormData(prev => ({
@@ -205,11 +205,16 @@ export default function AdminCouponsPage() {
     
     // Try to auto-detect store from barcode patterns
     const detectedStore = detectStoreFromBarcode(barcode)
+    console.log('🏪 Store detection result:', detectedStore)
+    
     if (detectedStore) {
+      console.log('✅ Setting store_id to:', detectedStore.id, '- Store name:', detectedStore.name)
       setFormData(prev => ({
         ...prev,
         store_id: detectedStore.id
       }))
+    } else {
+      console.log('❌ No store found for barcode:', barcode)
     }
   }
 
@@ -220,6 +225,23 @@ export default function AdminCouponsPage() {
     const parsed = parseExtractedText(text)
     console.log('📋 Enhanced parsed data:', parsed)
     
+    // Fallback store detection from text if barcode didn't work
+    let storeToSet = formData.store_id
+    if (!storeToSet) {
+      console.log('🏪 No store set from barcode, trying text detection...')
+      const detectedStoreFromText = detectStoreFromText(text)
+      if (detectedStoreFromText) {
+        const foundStore = stores.find(store => 
+          store.name.toLowerCase().includes(detectedStoreFromText.toLowerCase()) ||
+          store.chain_code?.toLowerCase() === detectedStoreFromText.toLowerCase()
+        )
+        if (foundStore) {
+          console.log('✅ Store detected from text:', foundStore.name)
+          storeToSet = foundStore.id
+        }
+      }
+    }
+    
     setFormData(prev => ({
       ...prev,
       title: parsed.title || prev.title,
@@ -229,7 +251,8 @@ export default function AdminCouponsPage() {
       minimum_purchase_amount: parsed.minimum_purchase_amount || prev.minimum_purchase_amount,
       valid_until: parsed.valid_until || prev.valid_until,
       conditions: parsed.conditions || prev.conditions,
-      category: parsed.category || prev.category
+      category: parsed.category || prev.category,
+      store_id: storeToSet || prev.store_id
     }))
   }
 
@@ -246,18 +269,22 @@ export default function AdminCouponsPage() {
     }
     
     console.log('🔍 Detecting store from barcode:', barcode)
+    console.log('🏪 Available stores:', stores.map(s => `${s.name} (${s.chain_code})`))
     
     for (const [storeName, pattern] of Object.entries(patterns)) {
+      console.log(`🔍 Testing pattern ${storeName}:`, pattern, 'against barcode:', barcode)
       if (pattern.test(barcode)) {
-        console.log('🏪 Store pattern matched:', storeName)
-        return stores.find(store => 
+        console.log('✅ Store pattern matched:', storeName)
+        const foundStore = stores.find(store => 
           store.name.toLowerCase().includes(storeName.toLowerCase()) ||
           store.chain_code?.toLowerCase() === storeName.toLowerCase()
         )
+        console.log('🏪 Found store in database:', foundStore)
+        return foundStore
       }
     }
     
-    console.log('🏪 No store pattern matched for barcode:', barcode)
+    console.log('❌ No store pattern matched for barcode:', barcode)
     return null
   }
 
@@ -485,9 +512,9 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
 
-                {/* Photo Upload Section */}
+                {/* Hybrid Coupon Upload Section */}
                 {inputMethod === 'photo' && (
-                  <CouponPhotoUpload
+                  <HybridCouponUpload
                     onPhotoUploaded={handlePhotoUploaded}
                     onBarcodeDetected={handleBarcodeDetected}
                     onTextExtracted={handleTextExtracted}
@@ -573,10 +600,9 @@ export default function AdminCouponsPage() {
                   </div>
 
                   <div>
-                    <label className="label">Gültig ab *</label>
+                    <label className="label">Gültig ab (optional)</label>
                     <input
                       type="date"
-                      required
                       className="input"
                       value={formData.valid_from}
                       onChange={(e) => setFormData({...formData, valid_from: e.target.value})}
