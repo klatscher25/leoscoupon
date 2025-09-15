@@ -32,7 +32,7 @@ CREATE TABLE stores (
     created_by UUID REFERENCES profiles(id)
 );
 
--- Coupons table
+-- Coupons table (aktualisiert basierend auf Supabase-Struktur)
 CREATE TABLE coupons (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     store_id UUID REFERENCES stores(id) ON DELETE CASCADE,
@@ -45,24 +45,26 @@ CREATE TABLE coupons (
     valid_until DATE NOT NULL,
     is_combinable BOOLEAN DEFAULT true,
     combinable_with_categories coupon_category[],
-    per_user_limit INTEGER DEFAULT 1,
-    per_payback_limit INTEGER DEFAULT 1,
     tags TEXT[],
     image_url TEXT,
     conditions TEXT,
     minimum_purchase_amount DECIMAL(10,2),
-    discount_amount DECIMAL(10,2),
-    discount_percentage INTEGER,
     priority INTEGER DEFAULT 0,
-    
-    -- Payback Validierungsfelder für Kombinationsregeln
-    warengruppe_id TEXT, -- Eindeutige ID für Warengruppe (z.B. 'drogerie', 'tiefkuehl')
-    artikel_id TEXT, -- Eindeutige ID für Artikel (z.B. 'coca-cola-1.5l', 'nutella-450g')
-    
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    created_by UUID REFERENCES profiles(id)
+    created_by UUID REFERENCES profiles(id),
+    
+    -- Erweiterte Felder aus aktueller Supabase-Struktur
+    detected_store_name TEXT,
+    coupon_value_type TEXT, -- USER-DEFINED type in Supabase
+    coupon_value_numeric DECIMAL(10,2),
+    coupon_value_text TEXT,
+    generated_barcode_url TEXT,
+    product_category_id UUID REFERENCES product_categories(id),
+    value_amount DECIMAL(10,2),
+    value_type TEXT DEFAULT 'points',
+    combination_rules JSONB
 );
 
 -- Coupon redemptions table

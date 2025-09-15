@@ -57,7 +57,7 @@ const CheckoutPage = () => {
   const [loading, setLoading] = useState(true);
   const [session, setSession] = useState<RedemptionSession | null>(null);
   const [coupons, setCoupons] = useState<CouponDisplay[]>([]);
-  const [currentIndex, setCurrentIndex] = useState(-2); // -2 = Overview, -1 = PAYBACK Card, 0+ = Coupons
+  const [currentIndex, setCurrentIndex] = useState(-1); // -1 = PAYBACK Card, 0+ = Coupons
   const [isCompleting, setIsCompleting] = useState(false);
   const [swipeStartX, setSwipeStartX] = useState(0);
   const [swipeCurrentX, setSwipeCurrentX] = useState(0);
@@ -170,20 +170,23 @@ const CheckoutPage = () => {
     const categories: { name: string; multiplier: number; type: string }[] = [];
 
     couponList.forEach(coupon => {
+      const couponValue = coupon.value_amount || 1;
+      
       if (coupon.category === 'einkauf') {
-        einkaufMultiplier += 0.5; // +50% für Einkauf-Coupons
+        // Verwende den tatsächlichen Multiplikator-Wert aus dem Coupon
+        einkaufMultiplier = Math.max(einkaufMultiplier, couponValue);
       } else if (coupon.category === 'warengruppe') {
-        warengruppenMultiplier += 1; // +100% für Warengruppen-Coupons
+        warengruppenMultiplier = Math.max(warengruppenMultiplier, couponValue);
         categories.push({ 
           name: coupon.category_name, 
-          multiplier: 2, 
+          multiplier: couponValue, 
           type: 'warengruppe' 
         });
       } else if (coupon.category === 'artikel') {
-        artikelMultiplier += 0.5; // +50% für Artikel-Coupons
+        artikelMultiplier = Math.max(artikelMultiplier, couponValue);
         categories.push({ 
           name: coupon.category_name, 
-          multiplier: 1.5, 
+          multiplier: couponValue, 
           type: 'artikel' 
         });
       }
@@ -243,15 +246,29 @@ const CheckoutPage = () => {
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
+    // Verhindere Swiping über Barcode/QR-Code Bereich
+    const target = e.target as HTMLElement;
+    if (target.closest('.barcode-container')) {
+      return;
+    }
+    
     setSwipeStartX(e.touches[0].clientX);
     setSwipeCurrentX(e.touches[0].clientX);
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
+    // Verhindere Swiping über Barcode/QR-Code Bereich
+    const target = e.target as HTMLElement;
+    if (target.closest('.barcode-container')) {
+      return;
+    }
+    
     setSwipeCurrentX(e.touches[0].clientX);
   };
 
   const handleTouchEnd = () => {
+    if (swipeStartX === 0) return; // Kein gültiger Swipe-Start
+    
     const deltaX = swipeCurrentX - swipeStartX;
     const threshold = 100;
 
@@ -274,7 +291,7 @@ const CheckoutPage = () => {
   };
 
   const handlePrevious = () => {
-    if (currentIndex > -2) {
+    if (currentIndex > -1) {
       setCurrentIndex(prev => prev - 1);
     }
   };
@@ -329,15 +346,38 @@ const CheckoutPage = () => {
             </div>
             {/* QR Code Simulation */}
             <div className="flex justify-center mb-4">
-              <div className="grid grid-cols-21 gap-0.5 w-40 h-40">
-                {Array.from({ length: 441 }, (_, i) => (
-                  <div
-                    key={i}
-                    className={`${
-                      Math.random() > 0.5 ? 'bg-black' : 'bg-white'
-                    } aspect-square`}
-                  />
-                ))}
+              <div className="grid grid-cols-25 gap-px w-48 h-48 bg-white border border-gray-300">
+                {Array.from({ length: 625 }, (_, i) => {
+                  // Erstelle ein realistischeres QR-Code Pattern
+                  const row = Math.floor(i / 25);
+                  const col = i % 25;
+                  
+                  // Ecken-Marker (Position Detection Patterns)
+                  const isCornerMarker = 
+                    (row < 7 && col < 7) || // Top-left
+                    (row < 7 && col > 17) || // Top-right
+                    (row > 17 && col < 7); // Bottom-left
+                  
+                  // Timing Pattern
+                  const isTimingPattern = 
+                    (row === 6 && col >= 8 && col <= 16) ||
+                    (col === 6 && row >= 8 && row <= 16);
+                  
+                  // Daten-Bereich mit semi-realistischem Pattern
+                  const isDataBlack = 
+                    isCornerMarker ||
+                    isTimingPattern ||
+                    (row + col + Math.floor(i / 3)) % 3 === 0;
+                  
+                  return (
+                    <div
+                      key={i}
+                      className={`w-full h-full ${
+                        isDataBlack ? 'bg-black' : 'bg-white'
+                      }`}
+                    />
+                  );
+                })}
               </div>
             </div>
             <div className="text-xs text-gray-500 mt-2">
@@ -414,7 +454,9 @@ const CheckoutPage = () => {
         </div>
         
         {/* Enhanced Barcode */}
-        {generateEnhancedBarcode(session?.payback_card_code || '')}
+        <div className="barcode-container">
+          {generateEnhancedBarcode(session?.payback_card_code || '')}
+        </div>
         
         <div className="mt-6 text-center">
           <p className="text-sm text-gray-500 mb-1">Kartennummer</p>
@@ -503,7 +545,9 @@ const CheckoutPage = () => {
         </div>
         
         {/* Enhanced Barcode */}
-        {generateEnhancedBarcode(coupon.barcode_value)}
+        <div className="barcode-container">
+          {generateEnhancedBarcode(coupon.barcode_value)}
+        </div>
         
         {/* Category Bonus Info */}
         {pointsBreakdown && (
@@ -629,7 +673,7 @@ const CheckoutPage = () => {
           ))}
         </div>
         <div className="text-center text-gray-600 text-sm">
-          {currentIndex + 2} von {totalSlides}
+          {currentIndex === -1 ? 'PAYBACK Karte' : `Coupon ${currentIndex + 1} von ${coupons.length}`}
         </div>
       </div>
 
@@ -657,7 +701,7 @@ const CheckoutPage = () => {
 
           <div className="text-center">
             <p className="text-sm text-gray-600 mb-2">
-              {currentIndex === -1 ? 'PAYBACK Karte' : `Coupon ${currentIndex + 1}`}
+              {currentIndex === -1 ? 'PAYBACK Karte' : `Coupon ${currentIndex + 1} von ${coupons.length}`}
             </p>
             {currentIndex === coupons.length - 1 && (
               <button
