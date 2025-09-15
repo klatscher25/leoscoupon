@@ -52,6 +52,9 @@ export default function AdminCouponsPage() {
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [successMessage, setSuccessMessage] = useState('')
   const [formData, setFormData] = useState<CouponForm>({
     title: '',
     description: '',
@@ -111,8 +114,13 @@ export default function AdminCouponsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSaving(true)
+    setError('')
+    setSuccessMessage('')
+    
     if (!user) {
       setError('Du musst angemeldet sein um Coupons zu speichern.')
+      setSaving(false)
       return
     }
 
@@ -146,16 +154,24 @@ export default function AdminCouponsPage() {
           .eq('id', editingId)
         
         if (error) throw error
+        setSuccessMessage('Coupon erfolgreich aktualisiert!')
       } else {
         const { error } = await supabase
           .from('coupons')
           .insert([couponData])
         
         if (error) throw error
+        setSuccessMessage('Coupon erfolgreich erstellt!')
       }
 
+      console.log('✅ Coupon successfully saved')
       resetForm()
-      loadCoupons()
+      await loadCoupons()
+      
+      // Auto-hide success message after 3 seconds
+      setTimeout(() => {
+        setSuccessMessage('')
+      }, 3000)
     } catch (error: any) {
       console.error('Error saving coupon:', error)
       
@@ -178,6 +194,8 @@ export default function AdminCouponsPage() {
         details: error?.details,
         hint: error?.hint
       })
+    } finally {
+      setSaving(false)
     }
   }
 
@@ -591,6 +609,9 @@ export default function AdminCouponsPage() {
     setShowForm(false)
     setInputMethod('manual')
     setCouponPhotoUrl('')
+    setError('')
+    setSaving(false)
+    // Don't clear success message immediately - let it show
   }
 
   if (!isAdmin) {
@@ -628,6 +649,26 @@ export default function AdminCouponsPage() {
               <h3 className="text-lg font-medium text-gray-900 mb-4">
                 {editingId ? 'Coupon bearbeiten' : 'Neuer Coupon'}
               </h3>
+
+              {/* Success Message */}
+              {successMessage && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="text-green-600 mr-2">✅</div>
+                    <div className="text-green-800 font-medium">{successMessage}</div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Error Message */}
+              {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <div className="text-red-600 mr-2">❌</div>
+                    <div className="text-red-800 font-medium">{error}</div>
+                  </div>
+                </div>
+              )}
 
               <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Input Method Selection */}
@@ -866,9 +907,17 @@ export default function AdminCouponsPage() {
                   </button>
                   <button
                     type="submit"
-                    className="btn-primary"
+                    disabled={saving}
+                    className={`btn-primary ${saving ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    {editingId ? 'Speichern' : 'Erstellen'}
+                    {saving ? (
+                      <div className="flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                        {editingId ? 'Speichere...' : 'Erstelle...'}
+                      </div>
+                    ) : (
+                      editingId ? 'Speichern' : 'Erstellen'
+                    )}
                   </button>
                 </div>
               </form>
