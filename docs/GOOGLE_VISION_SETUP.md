@@ -1,4 +1,4 @@
-# 🤖 Google Vision API Setup für Coupon-Erkennung
+ch# 🤖 Google Vision API Setup für Coupon-Erkennung
 
 Die Google Vision API bietet die zuverlässigste Coupon-Erkennung für Barcode und Text. Hier ist die komplette Setup-Anleitung:
 
