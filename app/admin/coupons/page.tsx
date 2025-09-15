@@ -41,6 +41,12 @@ interface CouponForm {
   conditions: string
   is_combinable: boolean
   combinable_with_categories: Database['public']['Enums']['coupon_category'][]
+  // New structured fields
+  detected_store_name?: string
+  coupon_value_type?: 'multiplier' | 'euro_amount' | 'percentage' | 'buy_x_get_y' | 'other'
+  coupon_value_numeric?: number
+  coupon_value_text?: string
+  generated_barcode_url?: string
 }
 
 export default function AdminCouponsPage() {
@@ -191,6 +197,37 @@ export default function AdminCouponsPage() {
   const handlePhotoUploaded = (url: string) => {
     setCouponPhotoUrl(url)
     console.log('📷 Photo uploaded:', url)
+  }
+
+  const handleStructuredDataExtracted = (structuredData: any) => {
+    console.log('🎯 Structured data extracted:', structuredData)
+    
+    // Auto-fill form with structured data
+    setFormData(prev => ({
+      ...prev,
+      detected_store_name: structuredData.detectedStoreName || prev.detected_store_name,
+      coupon_value_type: structuredData.couponValueType || prev.coupon_value_type,
+      coupon_value_numeric: structuredData.couponValueNumeric || prev.coupon_value_numeric,
+      coupon_value_text: structuredData.couponValueText || prev.coupon_value_text,
+      
+      // Auto-fill related fields based on structured data
+      title: structuredData.couponValueText || prev.title,
+      category: structuredData.couponValueType === 'multiplier' ? 'aktion' as any : 
+                structuredData.couponValueType === 'euro_amount' ? 'euro' as any :
+                structuredData.couponValueType === 'percentage' ? 'prozent' as any : prev.category
+    }))
+
+    // Try to auto-detect store from structured data
+    if (structuredData.detectedStoreName && !formData.store_id) {
+      const foundStore = stores.find(store => 
+        store.name.toUpperCase().includes(structuredData.detectedStoreName.toUpperCase()) ||
+        store.chain_code?.toUpperCase() === structuredData.detectedStoreName.toUpperCase()
+      )
+      if (foundStore) {
+        console.log('✅ Store auto-assigned from structured data:', foundStore.name)
+        setFormData(prev => ({ ...prev, store_id: foundStore.id }))
+      }
+    }
   }
 
   const handleBarcodeDetected = (barcode: string, type: string) => {
@@ -518,6 +555,7 @@ export default function AdminCouponsPage() {
                     onPhotoUploaded={handlePhotoUploaded}
                     onBarcodeDetected={handleBarcodeDetected}
                     onTextExtracted={handleTextExtracted}
+                    onStructuredDataExtracted={handleStructuredDataExtracted}
                     existingPhotoUrl={couponPhotoUrl}
                   />
                 )}

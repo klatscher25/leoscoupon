@@ -18,6 +18,7 @@ interface HybridCouponUploadProps {
   onPhotoUploaded?: (url: string) => void
   onBarcodeDetected?: (barcode: string, type: string) => void
   onTextExtracted?: (text: string) => void
+  onStructuredDataExtracted?: (structuredData: any) => void
   existingPhotoUrl?: string
 }
 
@@ -25,6 +26,7 @@ export default function HybridCouponUpload({
   onPhotoUploaded,
   onBarcodeDetected,
   onTextExtracted,
+  onStructuredDataExtracted,
   existingPhotoUrl
 }: HybridCouponUploadProps) {
   const [uploading, setUploading] = useState(false)
@@ -106,6 +108,10 @@ export default function HybridCouponUpload({
 
       if (result.text) {
         onTextExtracted?.(result.text)
+      }
+
+      if (result.structuredData) {
+        onStructuredDataExtracted?.(result.structuredData)
       }
       
     } catch (error) {
@@ -308,6 +314,47 @@ export default function HybridCouponUpload({
                     Barcode konnte nicht automatisch erkannt werden.<br/>
                     <strong>✅ Lösung:</strong> Original-Bild wird an der Kasse gescannt.
                   </p>
+                </div>
+              )}
+
+              {/* Structured Data Display */}
+              {detectionResult.structuredData && (
+                <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+                  <p className="text-sm font-medium text-purple-800 mb-2">🎯 Strukturierte Daten erkannt:</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                    {detectionResult.structuredData.detectedStoreName && (
+                      <div className="bg-white rounded p-2">
+                        <span className="font-medium text-gray-700">🏪 Laden:</span>
+                        <span className="ml-1 text-purple-700 font-bold">
+                          {detectionResult.structuredData.detectedStoreName}
+                        </span>
+                      </div>
+                    )}
+                    {detectionResult.structuredData.couponValueText && (
+                      <div className="bg-white rounded p-2">
+                        <span className="font-medium text-gray-700">💰 Wert:</span>
+                        <span className="ml-1 text-purple-700 font-bold">
+                          {detectionResult.structuredData.couponValueText}
+                        </span>
+                      </div>
+                    )}
+                    {detectionResult.structuredData.couponValueType && (
+                      <div className="bg-white rounded p-2">
+                        <span className="font-medium text-gray-700">📊 Typ:</span>
+                        <span className="ml-1 text-purple-700">
+                          {detectionResult.structuredData.couponValueType}
+                        </span>
+                      </div>
+                    )}
+                    {detectionResult.structuredData.couponValueNumeric && (
+                      <div className="bg-white rounded p-2">
+                        <span className="font-medium text-gray-700">🔢 Sortier-Wert:</span>
+                        <span className="ml-1 text-purple-700 font-bold">
+                          {detectionResult.structuredData.couponValueNumeric}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
