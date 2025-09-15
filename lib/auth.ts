@@ -47,40 +47,96 @@ export async function signUp(email: string, password: string, username: string) 
   return data
 }
 
+// Detect Safari iOS
+function isSafariIOS(): boolean {
+  if (typeof window === 'undefined') return false
+  const userAgent = navigator.userAgent
+  return /iPad|iPhone|iPod/.test(userAgent) && /Safari/.test(userAgent) && !/Chrome|CriOS|FxiOS/.test(userAgent)
+}
+
 export async function signIn(email: string, password: string) {
   const supabase = createClientComponentClient()
   
   try {
-    console.log('🔐 Attempting login with timeout protection...')
+    console.log('🔐 Attempting login with mobile optimization...')
     
-    // Add timeout protection for login request
-    const loginPromise = supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
-    
-    const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Login timeout - Bitte versuche es erneut')), 20000)
-    )
-    
-    const { data, error } = await Promise.race([
-      loginPromise,
-      timeoutPromise
-    ]) as any
-    
-    if (error) {
-      console.error('🚫 Login error:', error)
-      throw error
+    // Safari iOS needs different handling
+    if (isSafariIOS()) {
+      console.log('📱 Safari iOS detected - using optimized flow')
+      
+      // Clear any existing sessions first on iOS
+      try {
+        await supabase.auth.signOut()
+        console.log('🧹 iOS: Previous session cleared')
+      } catch (e) {
+        console.log('🧹 iOS: No previous session to clear')
+      }
+      
+      // Shorter timeout for iOS (Safari timeouts faster)
+      const loginPromise = supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('iOS Login timeout - Safari begrenzt Verbindungszeit')), 10000)
+      )
+      
+      const { data, error } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]) as any
+      
+      if (error) {
+        console.error('🚫 iOS Login error:', error)
+        throw error
+      }
+      
+      console.log('✅ iOS Login successful')
+      return data
+      
+    } else {
+      // Desktop/Android - original flow with longer timeout
+      const loginPromise = supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+      
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Login timeout - Bitte versuche es erneut')), 20000)
+      )
+      
+      const { data, error } = await Promise.race([
+        loginPromise,
+        timeoutPromise
+      ]) as any
+      
+      if (error) {
+        console.error('🚫 Login error:', error)
+        throw error
+      }
+      
+      console.log('✅ Login successful')
+      return data
     }
     
-    console.log('✅ Login successful')
-    return data
-    
   } catch (error: any) {
-    // Clear cache on login failure to prevent stuck state
-    if (typeof window !== 'undefined') {
-      const { clearSupabaseCache } = await import('@/utils/clearBrowserCache')
-      clearSupabaseCache()
+    // iOS-specific error handling
+    if (isSafariIOS()) {
+      console.log('📱 iOS Error handling - clearing all storage')
+      if (typeof window !== 'undefined') {
+        // More aggressive cache clearing for iOS
+        localStorage.clear()
+        sessionStorage.clear()
+        const { clearSupabaseCache } = await import('@/utils/clearBrowserCache')
+        clearSupabaseCache()
+      }
+    } else {
+      // Clear cache on login failure to prevent stuck state
+      if (typeof window !== 'undefined') {
+        const { clearSupabaseCache } = await import('@/utils/clearBrowserCache')
+        clearSupabaseCache()
+      }
     }
     throw error
   }

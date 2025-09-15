@@ -12,6 +12,13 @@ interface AuthState {
   loading: boolean
 }
 
+// Detect Safari iOS for special handling
+function isSafariIOS(): boolean {
+  if (typeof window === 'undefined') return false
+  const userAgent = navigator.userAgent
+  return /iPad|iPhone|iPod/.test(userAgent) && /Safari/.test(userAgent) && !/Chrome|CriOS|FxiOS/.test(userAgent)
+}
+
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -22,10 +29,22 @@ export function useAuth() {
   useEffect(() => {
     console.log('🔍 useAuth useEffect started')
     
-    // Check for cache issues first (like corrupted sessions)
-    if (detectCacheIssue()) {
-      console.log('🗑️ Cache issues detected, clearing...')
-      clearSupabaseCache()
+    // Safari iOS specific handling
+    if (isSafariIOS()) {
+      console.log('📱 Safari iOS detected in useAuth')
+      // More aggressive cache clearing for iOS
+      if (detectCacheIssue()) {
+        console.log('🗑️ iOS Cache issues detected, clearing all storage...')
+        localStorage.clear()
+        sessionStorage.clear()
+        clearSupabaseCache()
+      }
+    } else {
+      // Check for cache issues first (like corrupted sessions)
+      if (detectCacheIssue()) {
+        console.log('🗑️ Cache issues detected, clearing...')
+        clearSupabaseCache()
+      }
     }
     
     // Create supabase client inside useEffect to prevent re-creation
@@ -35,10 +54,13 @@ export function useAuth() {
       try {
         console.log('🔍 Getting initial session...')
         
-        // Add timeout to prevent infinite hanging (increased to 15s for slow connections)
+        // iOS Safari needs shorter timeouts
+        const sessionTimeoutMs = isSafariIOS() ? 8000 : 15000
+        console.log(`⏱️ Using ${sessionTimeoutMs}ms timeout for ${isSafariIOS() ? 'iOS Safari' : 'Desktop/Android'}`)
+        
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 15000)
+          setTimeout(() => reject(new Error(`Session timeout (${sessionTimeoutMs}ms)`)), sessionTimeoutMs)
         )
         
         const { data: { session }, error: sessionError } = await Promise.race([
@@ -96,15 +118,29 @@ export function useAuth() {
         console.error('Auth error:', error)
         
         // If session times out or fails, clear cache and retry once
-        if (error && typeof error === 'object' && 'message' in error && error.message === 'Session timeout') {
+        if (error && typeof error === 'object' && 'message' in error && (error.message as string).includes('Session timeout')) {
           console.log('🗑️ Session timeout - clearing cache and setting to logged out')
-          clearSupabaseCache()
-          // Force page reload to reset all state after cache clear
-          setTimeout(() => {
-            if (typeof window !== 'undefined') {
-              window.location.reload()
-            }
-          }, 1000)
+          
+          if (isSafariIOS()) {
+            console.log('📱 iOS Session timeout - aggressive cleanup')
+            localStorage.clear()
+            sessionStorage.clear()
+            clearSupabaseCache()
+            // iOS needs immediate reload
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.location.href = window.location.href // Force hard reload on iOS
+              }
+            }, 500)
+          } else {
+            clearSupabaseCache()
+            // Force page reload to reset all state after cache clear
+            setTimeout(() => {
+              if (typeof window !== 'undefined') {
+                window.location.reload()
+              }
+            }, 1000)
+          }
         }
         
         setAuthState({
