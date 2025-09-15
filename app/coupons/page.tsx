@@ -193,8 +193,26 @@ export default function CouponsPage() {
     <AppLayout>
       <div className="p-4 lg:p-8">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Coupons</h1>
-          <p className="text-gray-600">Finde und kombiniere deine Coupons für den optimalen Einkauf</p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Coupons</h1>
+              <p className="text-gray-600">Finde und kombiniere deine Coupons für den optimalen Einkauf</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => window.location.href = '/coupons/redeem'}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                🛒 Einlösen
+              </button>
+              <button
+                onClick={() => window.location.href = '/admin?tab=coupons'}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center gap-2"
+              >
+                ➕ Hinzufügen
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Search and Filters */}

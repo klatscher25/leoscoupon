@@ -17,7 +17,15 @@ import {
 
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
-  { name: 'Coupons', href: '/coupons', icon: TicketIcon },
+  { 
+    name: 'Coupons', 
+    href: '/coupons', 
+    icon: TicketIcon,
+    submenu: [
+      { name: 'Alle Coupons', href: '/coupons' },
+      { name: 'Einlösen', href: '/coupons/redeem' }
+    ]
+  },
   { name: 'Cashback', href: '/cashback', icon: CurrencyDollarIcon },
   { name: 'Profil', href: '/profile', icon: UserIcon },
 ]

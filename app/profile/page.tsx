@@ -4,6 +4,7 @@ import { useState } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/auth'
+import PaybackCardScanner from '@/components/profile/PaybackCardScanner'
 import { UserIcon, KeyIcon, CreditCardIcon } from '@heroicons/react/24/outline'
 
 export default function ProfilePage() {
@@ -135,6 +136,9 @@ export default function ProfilePage() {
               </div>
             </div>
           </div>
+
+          {/* PAYBACK Card Scanner */}
+          <PaybackCardScanner />
 
           {/* Banking Info Placeholder */}
           <div className="card p-6">
