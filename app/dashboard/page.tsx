@@ -107,22 +107,22 @@ export default function DashboardPage() {
     href?: string
   }) => {
     const colorClasses = {
-      primary: 'bg-primary-50 text-primary-600',
-      success: 'bg-success-50 text-success-600',
-      warning: 'bg-warning-50 text-warning-600',
-      danger: 'bg-danger-50 text-danger-600'
+      primary: 'bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 border-blue-200',
+      success: 'bg-gradient-to-br from-green-50 to-green-100 text-green-600 border-green-200',
+      warning: 'bg-gradient-to-br from-yellow-50 to-yellow-100 text-yellow-600 border-yellow-200',
+      danger: 'bg-gradient-to-br from-red-50 to-red-100 text-red-600 border-red-200'
     }
 
     const card = (
-      <div className="card card-hover p-6 cursor-pointer">
+      <div className="bg-white rounded-2xl p-6 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] shadow-lg hover:shadow-xl border border-gray-100">
         <div className="flex items-center">
-          <div className={`p-3 rounded-lg ${colorClasses[color]}`}>
-            <Icon className="h-6 w-6" />
+          <div className={`p-4 rounded-2xl ${colorClasses[color]} border`}>
+            <Icon className="h-7 w-7" strokeWidth={2} />
           </div>
-          <div className="ml-4">
-            <p className="text-2xl font-semibold text-gray-900">{value}</p>
-            <p className="text-sm text-gray-600">{title}</p>
-            {subtitle && <p className="text-xs text-gray-500">{subtitle}</p>}
+          <div className="ml-4 flex-1">
+            <p className="text-3xl font-black text-gray-900 mb-1">{value}</p>
+            <p className="text-sm font-semibold text-gray-600">{title}</p>
+            {subtitle && <p className="text-xs text-gray-500 mt-1">{subtitle}</p>}
           </div>
         </div>
       </div>
@@ -133,77 +133,82 @@ export default function DashboardPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 lg:p-8">
+      <div className="p-4 lg:p-8 bg-gradient-to-br from-blue-50/50 via-white to-indigo-50/50 min-h-screen">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Willkommen zurück, {profile?.username}! 👋
-          </h1>
-          <p className="text-gray-600">
-            Nutze deine Coupons optimal beim Einkaufen
-          </p>
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-2xl font-bold shadow-xl">
+              L
+            </div>
+            <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
+              Hallo, {profile?.username}! 👋
+            </h1>
+            <p className="text-gray-600 text-lg">
+              Bereit für deine nächsten Ersparnisse?
+            </p>
+          </div>
         </div>
 
         {/* Hauptfunktionen - Prominente CTA Buttons */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 gap-6 mb-8">
           {/* COUPON EINLÖSEN - Hauptfunktion */}
           <Link 
             href="/coupons/redeem"
-            className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-2xl p-8 text-white transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="group relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-emerald-600 hover:from-green-600 hover:via-green-700 hover:to-emerald-700 rounded-3xl p-8 text-white transition-all duration-300 transform hover:scale-[1.02] shadow-2xl hover:shadow-3xl"
           >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10"></div>
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                  <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
+                  <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                   </svg>
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold">{stats?.activeCoupons || 0}</div>
-                  <div className="text-green-100 text-sm">verfügbar</div>
+                  <div className="text-4xl font-black">{stats?.activeCoupons || 0}</div>
+                  <div className="text-green-100 text-sm font-medium">verfügbare Coupons</div>
                 </div>
               </div>
-              <h2 className="text-2xl font-bold mb-2">Coupons einlösen</h2>
-              <p className="text-green-100 mb-4">
-                Wähle deinen Laden und maximiere deine Ersparnisse
+              <h2 className="text-3xl font-black mb-3 tracking-tight">Coupons einlösen</h2>
+              <p className="text-green-100 mb-6 text-lg leading-relaxed">
+                🛒 Wähle deinen Laden und maximiere deine Ersparnisse beim nächsten Einkauf
               </p>
-              <div className="flex items-center text-sm font-medium">
-                <span>Jetzt einlösen</span>
-                <svg className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              <div className="flex items-center text-lg font-bold bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 w-fit">
+                <span>Jetzt sparen</span>
+                <svg className="ml-3 h-5 w-5 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
           </Link>
 
           {/* CASHBACK TRACKING - Zweite Hauptfunktion */}
           <Link 
             href="/cashback"
-            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-2xl p-8 text-white transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 hover:from-blue-600 hover:via-blue-700 hover:to-indigo-700 rounded-3xl p-8 text-white transition-all duration-300 transform hover:scale-[1.02] shadow-2xl hover:shadow-3xl"
           >
+            <div className="absolute inset-0 bg-gradient-to-br from-white/10 via-transparent to-black/10"></div>
             <div className="relative z-10">
-              <div className="flex items-center justify-between mb-4">
-                <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
-                  <CurrencyDollarIcon className="h-8 w-8" />
+              <div className="flex items-center justify-between mb-6">
+                <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 shadow-lg">
+                  <CurrencyDollarIcon className="h-10 w-10" strokeWidth={2} />
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold">{formatCurrency(stats?.totalCashbackAmount || 0)}</div>
-                  <div className="text-blue-100 text-sm">erhalten</div>
+                  <div className="text-4xl font-black">{formatCurrency(stats?.totalCashbackAmount || 0)}</div>
+                  <div className="text-blue-100 text-sm font-medium">bereits erhalten</div>
                 </div>
               </div>
-              <h2 className="text-2xl font-bold mb-2">Cashback tracken</h2>
-              <p className="text-blue-100 mb-4">
-                Verfolge deine Cashback-Aktionen und Auszahlungen
+              <h2 className="text-3xl font-black mb-3 tracking-tight">Cashback tracken</h2>
+              <p className="text-blue-100 mb-6 text-lg leading-relaxed">
+                💰 Verfolge deine Cashback-Aktionen und verwalte deine Auszahlungen
               </p>
-              <div className="flex items-center text-sm font-medium">
-                <span>Status anzeigen</span>
-                <svg className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+              <div className="flex items-center text-lg font-bold bg-white/20 backdrop-blur-sm rounded-full px-6 py-3 w-fit">
+                <span>Status prüfen</span>
+                <svg className="ml-3 h-5 w-5 transform group-hover:translate-x-2 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                 </svg>
               </div>
             </div>
-            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
           </Link>
         </div>
 
@@ -262,65 +267,96 @@ export default function DashboardPage() {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               {/* Coupon Actions */}
-              <div className="card p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Coupon Aktionen
-                </h2>
+              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-green-50 to-green-100 rounded-xl border border-green-200">
+                    <TicketIcon className="h-6 w-6 text-green-600" strokeWidth={2} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 ml-3">
+                    Coupon Aktionen
+                  </h2>
+                </div>
                 <div className="space-y-3">
                   <Link 
                     href="/coupons" 
-                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:from-green-50 hover:to-green-100 transition-all duration-200 group border border-gray-200 hover:border-green-200"
                   >
-                    <TicketIcon className="h-5 w-5 text-gray-600 mr-3" />
-                    <div>
-                      <div className="font-medium text-gray-900">Coupons durchsuchen</div>
+                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                      <TicketIcon className="h-5 w-5 text-gray-600 group-hover:text-green-600" strokeWidth={2} />
+                    </div>
+                    <div className="ml-4">
+                      <div className="font-semibold text-gray-900 group-hover:text-green-700">Coupons durchsuchen</div>
                       <div className="text-sm text-gray-600">Verfügbare Angebote finden</div>
                     </div>
+                    <svg className="ml-auto h-5 w-5 text-gray-400 group-hover:text-green-600 transform group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </Link>
                   
                   <Link 
-                    href="/coupons/scanner" 
-                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    href="/coupons/redeem" 
+                    className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:from-green-50 hover:to-green-100 transition-all duration-200 group border border-gray-200 hover:border-green-200"
                   >
-                    <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h2M4 4h5m3 0h6M4 4h5m3 0h6" />
-                    </svg>
-                    <div>
-                      <div className="font-medium text-gray-900">Barcode scannen</div>
-                      <div className="text-sm text-gray-600">Coupon direkt einlösen</div>
+                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                      <svg className="h-5 w-5 text-gray-600 group-hover:text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
                     </div>
+                    <div className="ml-4">
+                      <div className="font-semibold text-gray-900 group-hover:text-green-700">Coupon Scanner</div>
+                      <div className="text-sm text-gray-600">Barcode direkt scannen</div>
+                    </div>
+                    <svg className="ml-auto h-5 w-5 text-gray-400 group-hover:text-green-600 transform group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </Link>
                 </div>
               </div>
 
               {/* Cashback Actions */}
-              <div className="card p-6">
-                <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                  Cashback Aktionen
-                </h2>
+              <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100">
+                <div className="flex items-center mb-6">
+                  <div className="p-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl border border-blue-200">
+                    <CurrencyDollarIcon className="h-6 w-6 text-blue-600" strokeWidth={2} />
+                  </div>
+                  <h2 className="text-xl font-bold text-gray-900 ml-3">
+                    Cashback Aktionen
+                  </h2>
+                </div>
                 <div className="space-y-3">
                   <Link 
-                    href="/cashback/campaigns" 
-                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    href="/cashback" 
+                    className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:from-blue-50 hover:to-blue-100 transition-all duration-200 group border border-gray-200 hover:border-blue-200"
                   >
-                    <CurrencyDollarIcon className="h-5 w-5 text-gray-600 mr-3" />
-                    <div>
-                      <div className="font-medium text-gray-900">Aktuelle Aktionen</div>
+                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                      <CurrencyDollarIcon className="h-5 w-5 text-gray-600 group-hover:text-blue-600" strokeWidth={2} />
+                    </div>
+                    <div className="ml-4">
+                      <div className="font-semibold text-gray-900 group-hover:text-blue-700">Aktuelle Aktionen</div>
                       <div className="text-sm text-gray-600">Neue Cashback-Möglichkeiten</div>
                     </div>
+                    <svg className="ml-auto h-5 w-5 text-gray-400 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </Link>
                   
                   <Link 
                     href="/cashback/submit" 
-                    className="flex items-center p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                    className="flex items-center p-4 bg-gradient-to-r from-gray-50 to-gray-100 rounded-xl hover:from-blue-50 hover:to-blue-100 transition-all duration-200 group border border-gray-200 hover:border-blue-200"
                   >
-                    <svg className="h-5 w-5 text-gray-600 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                    </svg>
-                    <div>
-                      <div className="font-medium text-gray-900">Cashback einreichen</div>
+                    <div className="p-2 bg-white rounded-lg shadow-sm group-hover:shadow-md transition-shadow">
+                      <svg className="h-5 w-5 text-gray-600 group-hover:text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                    </div>
+                    <div className="ml-4">
+                      <div className="font-semibold text-gray-900 group-hover:text-blue-700">Cashback einreichen</div>
                       <div className="text-sm text-gray-600">Neuen Antrag erstellen</div>
                     </div>
+                    <svg className="ml-auto h-5 w-5 text-gray-400 group-hover:text-blue-600 transform group-hover:translate-x-1 transition-all duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                    </svg>
                   </Link>
                 </div>
               </div>

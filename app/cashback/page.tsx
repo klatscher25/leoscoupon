@@ -93,59 +93,64 @@ export default function CashbackPage() {
 
   return (
     <AppLayout>
-      <div className="p-4 lg:p-8">
+      <div className="p-4 lg:p-8 bg-gradient-to-br from-yellow-50/30 via-white to-green-50/30 min-h-screen">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Cashback Tracking</h1>
-            <p className="text-gray-600">Verwalte deine Cashback-Einreichungen</p>
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-yellow-500 to-orange-600 rounded-3xl flex items-center justify-center text-white text-2xl font-bold shadow-xl">
+            💰
           </div>
-          <Link href="/cashback/submit" className="btn-primary">
-            <PlusIcon className="h-4 w-4 mr-2" />
+          <h1 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">Cashback Tracking</h1>
+          <p className="text-gray-600 text-lg mb-6">Verwalte und verfolge deine Cashback-Einreichungen</p>
+          
+          <Link 
+            href="/cashback/submit" 
+            className="inline-flex items-center bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700 text-white px-8 py-4 rounded-2xl font-bold text-lg transition-all duration-200 transform hover:scale-[1.02] shadow-lg hover:shadow-xl"
+          >
+            <PlusIcon className="h-6 w-6 mr-3" strokeWidth={2} />
             Cashback einreichen
           </Link>
         </div>
 
         {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="card p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transform hover:scale-[1.02] transition-all duration-200">
             <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-green-50 text-green-600">
-                <BanknotesIcon className="h-6 w-6" />
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-green-50 to-green-100 text-green-600 border border-green-200">
+                <BanknotesIcon className="h-7 w-7" strokeWidth={2} />
               </div>
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">
+              <div className="ml-4 flex-1">
+                <p className="text-3xl font-black text-gray-900 mb-1">
                   {formatCurrency(totalAmount)}
                 </p>
-                <p className="text-sm text-gray-600">Erhalten</p>
+                <p className="text-sm font-semibold text-gray-600">Bereits erhalten</p>
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transform hover:scale-[1.02] transition-all duration-200">
             <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-blue-50 text-blue-600">
-                <ClockIcon className="h-6 w-6" />
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-50 to-blue-100 text-blue-600 border border-blue-200">
+                <ClockIcon className="h-7 w-7" strokeWidth={2} />
               </div>
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">
+              <div className="ml-4 flex-1">
+                <p className="text-3xl font-black text-gray-900 mb-1">
                   {formatCurrency(pendingAmount)}
                 </p>
-                <p className="text-sm text-gray-600">Ausstehend</p>
+                <p className="text-sm font-semibold text-gray-600">Noch ausstehend</p>
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 transform hover:scale-[1.02] transition-all duration-200">
             <div className="flex items-center">
-              <div className="p-3 rounded-lg bg-primary-50 text-primary-600">
-                <CurrencyDollarIcon className="h-6 w-6" />
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-purple-50 to-purple-100 text-purple-600 border border-purple-200">
+                <CurrencyDollarIcon className="h-7 w-7" strokeWidth={2} />
               </div>
-              <div className="ml-4">
-                <p className="text-2xl font-semibold text-gray-900">
+              <div className="ml-4 flex-1">
+                <p className="text-3xl font-black text-gray-900 mb-1">
                   {submissions.length}
                 </p>
-                <p className="text-sm text-gray-600">Einreichungen</p>
+                <p className="text-sm font-semibold text-gray-600">Gesamt Einreichungen</p>
               </div>
             </div>
           </div>

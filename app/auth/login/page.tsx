@@ -106,22 +106,24 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4">
-      <div className="max-w-md w-full space-y-8">
-        {/* Logo */}
-        <div className="text-center">
-          <div className="w-20 h-20 mx-auto mb-4">
-            <div className="w-full h-full bg-primary-600 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg">
-              L
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-indigo-50">
+      <div className="flex items-center justify-center min-h-screen p-4">
+        <div className="max-w-sm w-full space-y-8">
+          {/* Verbessertes Logo */}
+          <div className="text-center">
+            <div className="w-20 h-20 mx-auto mb-6 relative">
+              <div className="w-full h-full bg-gradient-to-br from-blue-600 to-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-xl">
+                L
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-green-500 rounded-full border-2 border-white"></div>
             </div>
+            <h2 className="text-3xl font-black text-gray-900 mb-2 tracking-tight">
+              Willkommen zurück!
+            </h2>
+            <p className="text-gray-600 text-lg">
+              Melde dich an, um fortzufahren
+            </p>
           </div>
-          <h2 className="text-3xl font-bold text-gray-900">
-            Willkommen zurück
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            Melde dich in deinem Konto an
-          </p>
-        </div>
 
         {/* Safari iOS Warnung */}
         {isMobileSafari && (
@@ -222,7 +224,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-primary btn-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-4 px-8 rounded-2xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? (
                 <div className="flex items-center justify-center">
@@ -236,16 +238,6 @@ export default function LoginPage() {
           </div>
 
           <div className="text-center">
-            <p className="text-sm text-gray-600">
-              Noch kein Konto?{' '}
-              <Link
-                href="/auth/register"
-                className="font-medium text-primary-600 hover:text-primary-500"
-              >
-                Jetzt registrieren
-              </Link>
-            </p>
-            
             {isMobileSafari && (
               <p className="text-xs text-blue-600 mt-2">
                 Login-Probleme?{' '}

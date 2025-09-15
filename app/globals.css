@@ -243,11 +243,48 @@ body {
   }
   
   .card {
-    @apply rounded-none border-x-0;
+    @apply rounded-lg border;
   }
   
   .modal {
     @apply rounded-t-lg rounded-b-none;
+  }
+}
+
+/* iPhone specific optimizations */
+@media (max-width: 414px) {
+  /* Larger touch targets for iPhone */
+  .btn {
+    @apply min-h-[44px] px-6;
+  }
+  
+  .input {
+    @apply min-h-[44px] text-base;
+  }
+  
+  /* Prevent zoom on focus */
+  input[type="email"],
+  input[type="password"],
+  input[type="text"],
+  textarea {
+    font-size: 16px;
+  }
+  
+  /* Better spacing for small screens */
+  .space-y-8 > * + * {
+    margin-top: 1.5rem;
+  }
+  
+  /* Improved readability */
+  h1, h2, h3 {
+    line-height: 1.2;
+  }
+}
+
+/* Safe area for iPhones with notch */
+@supports (padding: env(safe-area-inset-top)) {
+  .min-h-screen {
+    min-height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 }
 
