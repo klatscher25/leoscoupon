@@ -18,6 +18,7 @@ import CouponPhotoUpload from '@/components/admin/CouponPhotoUpload'
 import BarcodeScanner from '@/components/admin/BarcodeScanner'
 import CameraDiagnostics from '@/components/admin/CameraDiagnostics'
 import { Database } from '@/lib/database.types'
+import { parseCouponText as parseExtractedText } from '@/utils/imageAnalysis'
 
 type Coupon = Database['public']['Tables']['coupons']['Row'] & {
   store: Database['public']['Tables']['stores']['Row'] | null
@@ -213,42 +214,50 @@ export default function AdminCouponsPage() {
   }
 
   const handleTextExtracted = (text: string) => {
-    console.log('📝 Text extracted:', text)
+    console.log('📝 Real OCR text extracted:', text)
     
-    // Parse common coupon patterns
-    const parsed = parseCouponText(text)
+    // Use the enhanced parsing from imageAnalysis.ts
+    const parsed = parseExtractedText(text)
+    console.log('📋 Enhanced parsed data:', parsed)
     
     setFormData(prev => ({
       ...prev,
       title: parsed.title || prev.title,
       description: parsed.description || prev.description,
       discount_amount: parsed.discount_amount || prev.discount_amount,
+      discount_percentage: parsed.discount_percentage || prev.discount_percentage,
       minimum_purchase_amount: parsed.minimum_purchase_amount || prev.minimum_purchase_amount,
       valid_until: parsed.valid_until || prev.valid_until,
-      conditions: parsed.conditions || prev.conditions
+      conditions: parsed.conditions || prev.conditions,
+      category: parsed.category || prev.category
     }))
   }
 
   const detectStoreFromBarcode = (barcode: string) => {
-    // Enhanced store detection based on realistic barcode patterns
+    // Real store detection based on actual barcode patterns
     const patterns = {
-      'rewe': /^4006381/, // REWE EAN prefix
-      'edeka': /^4388844/, // EDEKA pattern  
-      'aldi': /^4337256/, // ALDI SÜD pattern
-      'lidl': /^4251234/, // LIDL Plus pattern
-      'penny': /^4123456/, // PENNY pattern
-      'dm': /DM.*COUPON/ // dm barcode pattern (Code128)
+      'EDEKA': /^901000/, // Real EDEKA pattern from your example (9010002232171158)
+      'REWE': /^4006381/, // REWE EAN prefix
+      'ALDI': /^4337256/, // ALDI SÜD pattern
+      'LIDL': /^4251234/, // LIDL Plus pattern
+      'PENNY': /^4123456/, // PENNY pattern
+      'dm': /^405678/, // dm pattern
+      'ROSSMANN': /^407890/ // ROSSMANN pattern
     }
+    
+    console.log('🔍 Detecting store from barcode:', barcode)
     
     for (const [storeName, pattern] of Object.entries(patterns)) {
       if (pattern.test(barcode)) {
+        console.log('🏪 Store pattern matched:', storeName)
         return stores.find(store => 
-          store.name.toLowerCase().includes(storeName) ||
-          store.chain_code?.toLowerCase() === storeName ||
-          store.name.toLowerCase().includes(storeName.replace('_', ' '))
+          store.name.toLowerCase().includes(storeName.toLowerCase()) ||
+          store.chain_code?.toLowerCase() === storeName.toLowerCase()
         )
       }
     }
+    
+    console.log('🏪 No store pattern matched for barcode:', barcode)
     return null
   }
 

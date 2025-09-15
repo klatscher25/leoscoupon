@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { createClientComponentClient } from '@/lib/supabase'
 import {
   PhotoIcon,
@@ -9,6 +9,7 @@ import {
   ArrowUpTrayIcon,
   CameraIcon
 } from '@heroicons/react/24/outline'
+import { ImageAnalyzer, detectStoreFromBarcode, parseCouponText } from '@/utils/imageAnalysis'
 
 interface CouponPhotoUploadProps {
   onPhotoUploaded?: (url: string) => void
@@ -27,10 +28,22 @@ export default function CouponPhotoUpload({
   const [photoUrl, setPhotoUrl] = useState(existingPhotoUrl || '')
   const [showPreview, setShowPreview] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
+  const [analysisStatus, setAnalysisStatus] = useState<string>('')
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
+  const imageAnalyzer = useRef<ImageAnalyzer | null>(null)
   const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    imageAnalyzer.current = new ImageAnalyzer()
+    
+    return () => {
+      if (imageAnalyzer.current) {
+        imageAnalyzer.current.cleanup()
+      }
+    }
+  }, [])
 
   const handleFileUpload = async (file: File) => {
     if (!file) return
@@ -70,61 +83,62 @@ export default function CouponPhotoUpload({
   }
 
   const analyzeImage = async (imageUrl: string) => {
+    if (!imageAnalyzer.current) return
+    
     setAnalyzing(true)
+    setAnalysisStatus('Initialisiere Analyse...')
+    
     try {
-      console.log('🔍 Analyzing image for barcodes and text...')
+      console.log('🔍 Starting real analysis for:', imageUrl)
+      setAnalysisStatus('Lade Barcode- und OCR-Engine...')
       
-      // Simulate realistic coupon analysis with various shop examples
-      setTimeout(() => {
-        // Random selection of different coupon types
-        const mockCoupons = [
-          {
-            barcode: '4006381333931',
-            type: 'ean13',
-            text: 'REWE Coupon\n5€ Rabatt ab 50€ Einkauf\nGültig bis 31.12.2024\nNur einmal pro Kunde einlösbar'
-          },
-          {
-            barcode: '4388844000022',
-            type: 'ean13', 
-            text: 'EDEKA Coupon\n10% Rabatt auf Obst & Gemüse\nGültig bis 15.01.2025\nMindestbestellwert: 25€'
-          },
-          {
-            barcode: '4337256775544',
-            type: 'ean13',
-            text: 'ALDI SÜD\n3€ Rabatt ab 30€ Einkauf\nGültig bis 28.02.2025\nAusgenommen: Alkohol, Tabak'
-          },
-          {
-            barcode: '4251234567890',
-            type: 'ean13',
-            text: 'LIDL Plus Coupon\n2 für 1 Aktion\nAlle Backwaren\nGültig bis 10.03.2025'
-          },
-          {
-            barcode: '4123456789012',
-            type: 'ean13',
-            text: 'PENNY Coupon\n15% Rabatt auf Fleisch & Wurst\nGültig bis 05.04.2025\nMindestbestellwert: 20€'
-          },
-          {
-            barcode: 'DM2024COUPON15',
-            type: 'code128',
-            text: 'dm-drogerie markt\n20% Rabatt auf Eigenmarken\nGültig bis 30.06.2025\nOnline & in der Filiale'
-          }
-        ]
+      // Real image analysis using computer vision
+      const result = await imageAnalyzer.current.analyzeImage(imageUrl)
+      
+      if (result.barcode) {
+        console.log('📷 Real barcode detected:', result.barcode)
+        setAnalysisStatus('Barcode erkannt! Extrahiere Text...')
         
-        // Select random coupon
-        const selectedCoupon = mockCoupons[Math.floor(Math.random() * mockCoupons.length)]
+        // Auto-detect store from real barcode
+        const detectedStore = detectStoreFromBarcode(result.barcode.value)
+        if (detectedStore) {
+          console.log('🏪 Store detected:', detectedStore)
+        }
         
-        console.log('📷 Detected barcode:', selectedCoupon.barcode)
-        console.log('📝 Extracted text:', selectedCoupon.text)
+        onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())
+      } else {
+        console.log('📷 No barcode detected')
+        setAnalysisStatus('Kein Barcode gefunden. Analysiere Text...')
+      }
+
+      if (result.text) {
+        console.log('📝 Real text extracted:', result.text)
+        console.log('🎯 OCR Confidence:', result.confidence)
+        setAnalysisStatus(`Text erkannt (${Math.round(result.confidence || 0)}% Sicherheit)`)
         
-        onBarcodeDetected?.(selectedCoupon.barcode, selectedCoupon.type)
-        onTextExtracted?.(selectedCoupon.text)
+        // Parse the extracted text for coupon information
+        const parsedData = parseCouponText(result.text)
+        console.log('📋 Parsed coupon data:', parsedData)
         
-        setAnalyzing(false)
-      }, 1500) // Slightly faster analysis
+        onTextExtracted?.(result.text)
+      } else {
+        console.log('📝 No text extracted')
+        setAnalysisStatus('Kein Text erkannt')
+      }
+      
+      if (!result.barcode && !result.text) {
+        setAnalysisStatus('❌ Keine Daten erkannt. Bitte versuchen Sie ein klareres Bild.')
+      } else {
+        setAnalysisStatus('✅ Analyse abgeschlossen!')
+      }
       
     } catch (error) {
-      console.error('Analysis error:', error)
+      console.error('❌ Real analysis error:', error)
+      setAnalysisStatus('❌ Analyse fehlgeschlagen. Bitte versuchen Sie es erneut.')
+    } finally {
       setAnalyzing(false)
+      // Clear status after 3 seconds
+      setTimeout(() => setAnalysisStatus(''), 3000)
     }
   }
 
@@ -254,10 +268,11 @@ export default function CouponPhotoUpload({
             />
             
             {analyzing && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="text-white text-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-2"></div>
-                  <p className="text-sm">Analysiere Barcode...</p>
+              <div className="absolute inset-0 bg-black bg-opacity-75 flex items-center justify-center">
+                <div className="text-white text-center max-w-xs">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mx-auto mb-3"></div>
+                  <p className="text-sm font-medium mb-2">🔍 Echte Computer Vision</p>
+                  <p className="text-xs opacity-90">{analysisStatus}</p>
                 </div>
               </div>
             )}
