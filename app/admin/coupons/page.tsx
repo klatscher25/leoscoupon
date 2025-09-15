@@ -37,8 +37,6 @@ interface CouponForm {
   valid_until: string
   minimum_purchase_amount: string
   conditions: string
-  is_combinable: boolean
-  combinable_with_categories: Database['public']['Enums']['coupon_category'][]
   // New structured fields
   detected_store_name?: string
   coupon_value_type?: 'multiplier' | 'euro_amount' | 'percentage' | 'buy_x_get_y' | 'other'
@@ -64,9 +62,7 @@ export default function AdminCouponsPage() {
     valid_from: new Date().toISOString().split('T')[0],
     valid_until: '',
     minimum_purchase_amount: '',
-    conditions: '',
-    is_combinable: true,
-    combinable_with_categories: ['warengruppe', 'artikel']
+    conditions: ''
   })
   
   // New states for multi-input
@@ -115,11 +111,16 @@ export default function AdminCouponsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!user) return
+    if (!user) {
+      setError('Du musst angemeldet sein um Coupons zu speichern.')
+      return
+    }
 
     try {
       console.log('💾 Saving coupon with data:', formData)
+      console.log('🔑 User ID:', user.id)
       
+      // Only use fields that definitely exist in the database
       const couponData = {
         title: formData.title,
         description: formData.description,
@@ -131,16 +132,9 @@ export default function AdminCouponsPage() {
         valid_until: formData.valid_until,
         minimum_purchase_amount: formData.minimum_purchase_amount ? parseFloat(formData.minimum_purchase_amount) : null,
         conditions: formData.conditions,
-        is_combinable: formData.is_combinable,
-        combinable_with_categories: formData.combinable_with_categories,
-        // Structured fields
-        detected_store_name: formData.detected_store_name || null,
-        coupon_value_type: formData.coupon_value_type || null,
-        coupon_value_numeric: formData.coupon_value_numeric || null,
-        coupon_value_text: formData.coupon_value_text || null,
-        generated_barcode_url: formData.generated_barcode_url || null,
+        is_combinable: true, // Fixed to true, checkbox removed
         image_url: couponPhotoUrl || null,
-        created_by: user.id
+        created_by: user.id  // RLS requires valid user ID
       }
       
       console.log('💾 Final coupon data:', couponData)
@@ -162,9 +156,28 @@ export default function AdminCouponsPage() {
 
       resetForm()
       loadCoupons()
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving coupon:', error)
-      alert('Fehler beim Speichern des Coupons')
+      
+      let errorMessage = 'Fehler beim Speichern des Coupons'
+      
+      if (error?.code === '42501') {
+        errorMessage = 'Berechtigung verweigert. RLS Policy Problem - Überprüfe Datenbank-Berechtigungen.'
+      } else if (error?.code === '23505') {
+        errorMessage = 'Barcode bereits vorhanden. Bitte wähle einen anderen Barcode.'
+      } else if (error?.code === '23503') {
+        errorMessage = 'Store ID ungültig. Bitte wähle einen gültigen Store.'
+      } else if (error?.message) {
+        errorMessage = `Fehler: ${error.message}`
+      }
+      
+      setError(errorMessage)
+      console.error('Detailed error:', {
+        code: error?.code,
+        message: error?.message,
+        details: error?.details,
+        hint: error?.hint
+      })
     }
   }
 
@@ -179,9 +192,7 @@ export default function AdminCouponsPage() {
       valid_from: coupon.valid_from,
       valid_until: coupon.valid_until,
       minimum_purchase_amount: coupon.minimum_purchase_amount?.toString() || '',
-      conditions: coupon.conditions || '',
-      is_combinable: coupon.is_combinable || false,
-      combinable_with_categories: coupon.combinable_with_categories || []
+      conditions: coupon.conditions || ''
     })
     setEditingId(coupon.id)
     setShowForm(true)
@@ -574,9 +585,7 @@ export default function AdminCouponsPage() {
       valid_from: new Date().toISOString().split('T')[0],
       valid_until: '',
       minimum_purchase_amount: '',
-      conditions: '',
-      is_combinable: true,
-      combinable_with_categories: ['warengruppe', 'artikel']
+      conditions: ''
     })
     setEditingId(null)
     setShowForm(false)
@@ -842,16 +851,9 @@ export default function AdminCouponsPage() {
                   />
                 </div>
 
-                <div className="flex items-center space-x-4">
-                  <label className="flex items-center">
-                    <input
-                      type="checkbox"
-                      className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-                      checked={formData.is_combinable}
-                      onChange={(e) => setFormData({...formData, is_combinable: e.target.checked})}
-                    />
-                    <span className="ml-2 text-sm text-gray-700">Kombinierbar</span>
-                  </label>
+                {/* Kombinierbar Checkbox entfernt - immer auf true gesetzt */}
+                <div className="text-sm text-gray-600">
+                  ℹ️ Alle Coupons sind automatisch kombinierbar
                 </div>
 
                 <div className="flex justify-end space-x-3 pt-4">
