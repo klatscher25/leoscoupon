@@ -13,13 +13,17 @@ import {
   ExclamationTriangleIcon
 } from '@heroicons/react/24/outline'
 import { HybridCouponSystem, CouponDetectionResult } from '@/utils/hybridCouponSystem'
+import { GoogleVisionCouponAnalyzer, GoogleVisionCouponResult } from '@/utils/googleVisionCouponAnalyzer'
 
 interface HybridCouponUploadProps {
   onPhotoUploaded?: (url: string) => void
   onBarcodeDetected?: (barcode: string, type: string) => void
   onTextExtracted?: (text: string) => void
   onStructuredDataExtracted?: (structuredData: any) => void
+  onGoogleVisionAnalyzed?: (result: GoogleVisionCouponResult) => void
   existingPhotoUrl?: string
+  googleVisionApiKey?: string
+  enableGoogleVision?: boolean
 }
 
 export default function HybridCouponUpload({
@@ -27,7 +31,10 @@ export default function HybridCouponUpload({
   onBarcodeDetected,
   onTextExtracted,
   onStructuredDataExtracted,
-  existingPhotoUrl
+  onGoogleVisionAnalyzed,
+  existingPhotoUrl,
+  googleVisionApiKey,
+  enableGoogleVision = true
 }: HybridCouponUploadProps) {
   const [uploading, setUploading] = useState(false)
   const [photoUrl, setPhotoUrl] = useState(existingPhotoUrl || '')
@@ -42,17 +49,26 @@ export default function HybridCouponUpload({
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const galleryInputRef = useRef<HTMLInputElement>(null)
   const hybridSystem = useRef<HybridCouponSystem | null>(null)
+  const googleVisionAnalyzer = useRef<GoogleVisionCouponAnalyzer | null>(null)
   const supabase = createClientComponentClient()
 
   useEffect(() => {
     hybridSystem.current = new HybridCouponSystem()
+    
+    // Initialize Google Vision if API key is provided
+    if (googleVisionApiKey && enableGoogleVision) {
+      googleVisionAnalyzer.current = new GoogleVisionCouponAnalyzer(
+        { apiKey: googleVisionApiKey, enableDebug: true },
+        { maxMonthlyBudget: 10.0, maxDailyRequests: 100 }
+      )
+    }
     
     return () => {
       if (hybridSystem.current) {
         hybridSystem.current.cleanup()
       }
     }
-  }, [])
+  }, [googleVisionApiKey, enableGoogleVision])
 
   const handleFileUpload = async (file: File) => {
     if (!file) return
@@ -99,44 +115,101 @@ export default function HybridCouponUpload({
     setDebugInfo([])
     
     try {
-      // Use the new analyzeImage method with server logging
-      const result = await hybridSystem.current.analyzeImage(imageUrl)
-      setDetectionResult(result)
+      let finalResult: any = null
+      let useGoogleVision = false
       
-      // Add analysis steps to debug info for visual feedback
+      // Step 1: Try Google Vision first if available and enabled
+      if (googleVisionAnalyzer.current && googleVisionApiKey && enableGoogleVision) {
+        setAnalysisStatus('🌟 Google Vision KI-Analyse läuft...')
+        
+        try {
+          const googleResult = await googleVisionAnalyzer.current.analyzeImage(imageUrl)
+          
+          if (googleResult.success) {
+            setAnalysisStatus('✅ Google Vision erfolgreich!')
+            finalResult = googleResult
+            useGoogleVision = true
+            
+            // Call Google Vision specific callback
+            onGoogleVisionAnalyzed?.(googleResult)
+            
+            // Convert to hybrid format for backwards compatibility
+            if (googleResult.barcode) {
+              onBarcodeDetected?.(googleResult.barcode.value, googleResult.barcode.format.toLowerCase())
+            }
+            if (googleResult.text) {
+              onTextExtracted?.(googleResult.text)
+            }
+            if (googleResult.structuredData) {
+              onStructuredDataExtracted?.(googleResult.structuredData)
+            }
+          } else {
+            setAnalysisStatus('❌ Google Vision fehlgeschlagen, fallback zu lokalem System...')
+          }
+        } catch (error) {
+          console.warn('Google Vision error, falling back to local analysis:', error)
+          setAnalysisStatus('⚠️ Google Vision Fehler, versuche lokale Analyse...')
+        }
+      }
+      
+      // Step 2: Use hybrid system if Google Vision failed or is not available
+      if (!finalResult) {
+        setAnalysisStatus('🔄 Lokale Hybrid-Analyse läuft...')
+        
+        const result = await hybridSystem.current.analyzeImage(imageUrl)
+        setDetectionResult(result)
+        finalResult = result
+        
+        if (result.success) {
+          setAnalysisStatus('✅ Lokale Analyse erfolgreich!')
+          
+          // Callback with detected barcode
+          if (result.barcode) {
+            onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())
+          }
+          
+          // Callback with extracted text
+          if (result.text) {
+            onTextExtracted?.(result.text)
+          }
+          
+          // Callback with structured data
+          if (result.structuredData) {
+            onStructuredDataExtracted?.(result.structuredData)
+          }
+        }
+      }
+      
+      // Build debug info
       const debugMessages: string[] = []
-      if (result.analysisSteps) {
-        debugMessages.push(...result.analysisSteps)
+      debugMessages.push(`📊 Analyse-Methode: ${useGoogleVision ? 'Google Vision KI' : 'Lokales Hybrid-System'}`)
+      
+      if (useGoogleVision && finalResult.costs) {
+        debugMessages.push(`💰 Kosten: $${finalResult.costs.estimatedCost.toFixed(4)} (${finalResult.costs.apiCalls} API-Calls)`)
+        debugMessages.push(`⏱️ Verarbeitungszeit: ${finalResult.processingTime}ms`)
+      }
+      
+      if (finalResult.analysisSteps) {
+        debugMessages.push(...finalResult.analysisSteps)
       }
 
       // Add structured data info
-      if (result.structuredData) {
-        debugMessages.push(`🏪 Store: ${result.structuredData.detectedStoreName || 'Not detected'}`)
-        debugMessages.push(`💰 Value: ${result.structuredData.couponValueText || 'Not detected'}`)
-        debugMessages.push(`🔢 Numeric: ${result.structuredData.couponValueNumeric || 'Not detected'}`)
+      if (finalResult.structuredData) {
+        debugMessages.push(`🏪 Store: ${finalResult.structuredData.storeName || finalResult.structuredData.detectedStoreName || 'Not detected'}`)
+        debugMessages.push(`💰 Discount: ${finalResult.structuredData.discountText || finalResult.structuredData.couponValueText || 'Not detected'}`)
+        debugMessages.push(`📅 Valid until: ${finalResult.structuredData.validUntil || 'Not detected'}`)
       }
 
       // Add text info
-      if (result.text) {
-        debugMessages.push(`📝 Text extracted (${result.confidence?.toFixed(1)}% confidence)`)
-        debugMessages.push(`📝 Preview: ${result.text.substring(0, 100)}...`)
+      if (finalResult.text) {
+        debugMessages.push(`📝 Text extracted (${finalResult.confidence?.toFixed(1)}% confidence)`)
+        debugMessages.push(`📝 Preview: ${finalResult.text.substring(0, 100)}...`)
       }
 
       setDebugInfo(debugMessages)
       
-      if (result.barcode) {
-        setAnalysisStatus('✅ Barcode erfolgreich erkannt und bereinigt!')
-        onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())
-      } else {
-        setAnalysisStatus('❌ Barcode nicht erkannt - Original-Bild für Kassen-Scanner bereit')
-      }
-
-      if (result.text) {
-        onTextExtracted?.(result.text)
-      }
-
-      if (result.structuredData) {
-        onStructuredDataExtracted?.(result.structuredData)
+      if (!finalResult || !finalResult.success) {
+        setAnalysisStatus('⚠️ Keine Coupon-Daten erkannt')
       }
       
     } catch (error) {

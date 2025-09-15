@@ -15,6 +15,7 @@ import {
   QrCodeIcon
 } from '@heroicons/react/24/outline'
 import HybridCouponUpload from '@/components/admin/HybridCouponUpload'
+import GoogleDriveBatchUpload from '@/components/admin/GoogleDriveBatchUpload'
 import BarcodeScanner from '@/components/admin/BarcodeScanner'
 import CameraDiagnostics from '@/components/admin/CameraDiagnostics'
 import { Database } from '@/lib/database.types'
@@ -76,8 +77,11 @@ export default function AdminCouponsPage() {
   })
   
   // New states for multi-input
-  const [inputMethod, setInputMethod] = useState<'manual' | 'photo' | 'scanner'>('manual')
+  const [inputMethod, setInputMethod] = useState<'manual' | 'photo' | 'scanner' | 'batch-drive'>('manual')
   const [couponPhotoUrl, setCouponPhotoUrl] = useState<string>('')
+  
+  // Google Vision API configuration - Add your API key here
+  const GOOGLE_VISION_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_VISION_API_KEY || ''
 
   const supabase = createClientComponentClient()
 
@@ -227,6 +231,109 @@ export default function AdminCouponsPage() {
         console.log('✅ Store auto-assigned from structured data:', foundStore.name)
         setFormData(prev => ({ ...prev, store_id: foundStore.id }))
       }
+    }
+  }
+
+  const handleGoogleVisionAnalysis = (result: any) => {
+    console.log('🌟 Google Vision analysis result:', result)
+    
+    if (!result.success) {
+      console.warn('❌ Google Vision analysis failed')
+      return
+    }
+    
+    // Auto-fill form with comprehensive Google Vision data
+    setFormData(prev => {
+      const updates: any = { ...prev }
+      
+      // Barcode data
+      if (result.barcode) {
+        updates.barcode_value = result.barcode.value
+        updates.barcode_type = result.barcode.format.toLowerCase()
+      }
+      
+      // Store name detection
+      if (result.structuredData?.storeName) {
+        updates.detected_store_name = result.structuredData.storeName
+        
+        // Try to find matching store ID
+        const matchingStore = stores.find(store => 
+          store.name.toLowerCase().includes(result.structuredData.storeName.toLowerCase())
+        )
+        if (matchingStore) {
+          updates.store_id = matchingStore.id
+        }
+      }
+      
+      // Discount information
+      if (result.structuredData?.discountValue && result.structuredData?.discountType) {
+        updates.coupon_value_numeric = result.structuredData.discountValue
+        updates.coupon_value_type = result.structuredData.discountType
+        updates.coupon_value_text = result.structuredData.discountText || ''
+        
+        // Fill specific discount fields based on type
+        if (result.structuredData.discountType === 'euro') {
+          updates.discount_amount = result.structuredData.discountValue.toString()
+        } else if (result.structuredData.discountType === 'percentage') {
+          updates.discount_percentage = result.structuredData.discountValue.toString()
+        }
+      }
+      
+      // Minimum purchase amount
+      if (result.structuredData?.minAmount) {
+        updates.minimum_purchase_amount = result.structuredData.minAmount.toString()
+      }
+      
+      // Valid until date
+      if (result.structuredData?.validUntil) {
+        updates.valid_until = result.structuredData.validUntil
+      }
+      
+      // Conditions
+      if (result.structuredData?.conditions && result.structuredData.conditions.length > 0) {
+        updates.conditions = result.structuredData.conditions.join('. ')
+      }
+      
+      // Auto-generate title if not set
+      if (!updates.title && result.structuredData?.discountValue && result.structuredData?.storeName) {
+        const discountText = result.structuredData.discountType === 'multiplier' 
+          ? `${result.structuredData.discountValue}FACH`
+          : result.structuredData.discountType === 'percentage'
+          ? `${result.structuredData.discountValue}%`
+          : result.structuredData.discountType === 'euro'
+          ? `${result.structuredData.discountValue}€`
+          : result.structuredData.discountValue
+        
+        updates.title = `${result.structuredData.storeName} - ${discountText} Rabatt`
+      }
+      
+      // Auto-generate description from detected text
+      if (!updates.description && result.text) {
+        // Take first meaningful sentences from detected text
+        const sentences = result.text.split(/[.!?]/).filter(s => s.trim().length > 10)
+        if (sentences.length > 0) {
+          updates.description = sentences.slice(0, 2).join('. ').trim()
+        }
+      }
+      
+      return updates
+    })
+    
+    console.log('✅ Form auto-filled with Google Vision data')
+  }
+
+  const handleBatchAnalysis = (results: any[]) => {
+    console.log('📁 Batch analysis completed:', results)
+    
+    const successful = results.filter(r => r.success)
+    const failed = results.filter(r => !r.success)
+    
+    alert(`Batch-Analyse abgeschlossen!\n✅ Erfolgreich: ${successful.length}\n❌ Fehlgeschlagen: ${failed.length}\n\nDie erfolgreich analysierten Coupons können jetzt einzeln als Vorlagen verwendet werden.`)
+    
+    // Optional: Auto-fill form with first successful result
+    if (successful.length > 0) {
+      const firstSuccess = successful[0]
+      handleGoogleVisionAnalysis(firstSuccess)
     }
   }
 
@@ -504,7 +611,21 @@ export default function AdminCouponsPage() {
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     📱 Eingabe-Methode wählen
                   </label>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setInputMethod('batch-drive')}
+                      className={`p-3 border-2 rounded-lg text-center transition-colors ${
+                        inputMethod === 'batch-drive'
+                          ? 'border-green-500 bg-green-50 text-green-700'
+                          : 'border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      <div className="text-xl mx-auto mb-1">📁</div>
+                      <div className="text-xs font-medium">Google Drive</div>
+                      <div className="text-xs text-gray-500">Batch Upload</div>
+                    </button>
+                    
                     <button
                       type="button"
                       onClick={() => setInputMethod('photo')}
@@ -516,7 +637,7 @@ export default function AdminCouponsPage() {
                     >
                       <PhotoIcon className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-xs font-medium">Foto Upload</div>
-                      <div className="text-xs text-gray-500">iPhone Screenshot</div>
+                      <div className="text-xs text-gray-500">KI + Fallback</div>
                     </button>
                     
                     <button
@@ -549,6 +670,16 @@ export default function AdminCouponsPage() {
                   </div>
                 </div>
 
+                {/* Google Drive Batch Upload Section */}
+                {inputMethod === 'batch-drive' && (
+                  <div className="space-y-4">
+                    <GoogleDriveBatchUpload
+                      googleVisionApiKey={GOOGLE_VISION_API_KEY}
+                      onBatchAnalyzed={handleBatchAnalysis}
+                    />
+                  </div>
+                )}
+
                 {/* Hybrid Coupon Upload Section */}
                 {inputMethod === 'photo' && (
                   <HybridCouponUpload
@@ -556,6 +687,9 @@ export default function AdminCouponsPage() {
                     onBarcodeDetected={handleBarcodeDetected}
                     onTextExtracted={handleTextExtracted}
                     onStructuredDataExtracted={handleStructuredDataExtracted}
+                    onGoogleVisionAnalyzed={handleGoogleVisionAnalysis}
+                    googleVisionApiKey={GOOGLE_VISION_API_KEY}
+                    enableGoogleVision={!!GOOGLE_VISION_API_KEY}
                     existingPhotoUrl={couponPhotoUrl}
                   />
                 )}
