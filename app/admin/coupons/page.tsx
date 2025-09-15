@@ -123,6 +123,44 @@ export default function AdminCouponsPage() {
       setSaving(false)
       return
     }
+    
+    // Frontend validation before sending to DB
+    if (!formData.title.trim()) {
+      setError('Titel ist erforderlich.')
+      setSaving(false)
+      return
+    }
+    
+    if (!formData.barcode_value.trim()) {
+      setError('Barcode-Wert ist erforderlich.')
+      setSaving(false)
+      return
+    }
+    
+    if (!formData.valid_until) {
+      setError('Gültig bis Datum ist erforderlich.')
+      setSaving(false)
+      return
+    }
+    
+    // Ensure valid enum values
+    const validCategories = ['einkauf', 'warengruppe', 'artikel']
+    if (!validCategories.includes(formData.category)) {
+      console.warn('Invalid category detected, fixing:', formData.category)
+      setFormData(prev => ({ ...prev, category: 'artikel' }))
+      setError('Kategorie wurde korrigiert. Bitte erneut speichern.')
+      setSaving(false)
+      return
+    }
+    
+    const validBarcodeTypes = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'qr', 'datamatrix', 'aztec', 'other']
+    if (!validBarcodeTypes.includes(formData.barcode_type)) {
+      console.warn('Invalid barcode_type detected, fixing:', formData.barcode_type)
+      setFormData(prev => ({ ...prev, barcode_type: 'ean13' }))
+      setError('Barcode-Typ wurde korrigiert. Bitte erneut speichern.')
+      setSaving(false)
+      return
+    }
 
     try {
       console.log('💾 Saving coupon with data:', formData)
@@ -177,16 +215,29 @@ export default function AdminCouponsPage() {
       
       let errorMessage = 'Fehler beim Speichern des Coupons'
       
+      // Comprehensive error handling for all possible issues
       if (error?.code === '42501') {
         errorMessage = 'Berechtigung verweigert. RLS Policy Problem - Überprüfe Datenbank-Berechtigungen.'
       } else if (error?.code === '23505') {
         errorMessage = 'Barcode bereits vorhanden. Bitte wähle einen anderen Barcode.'
       } else if (error?.code === '23503') {
         errorMessage = 'Store ID ungültig. Bitte wähle einen gültigen Store.'
-      } else if (error?.message?.includes('invalid input value for enum barcode_type')) {
-        errorMessage = 'Ungültiger Barcode-Typ. Bitte wähle einen gültigen Typ aus der Liste.'
-        // Reset to valid default
-        setFormData(prev => ({ ...prev, barcode_type: 'ean13' }))
+      } else if (error?.code === '22P02') {
+        if (error.message.includes('barcode_type')) {
+          errorMessage = 'Ungültiger Barcode-Typ. System wird korrigiert...'
+          setFormData(prev => ({ ...prev, barcode_type: 'ean13' }))
+        } else if (error.message.includes('coupon_category')) {
+          errorMessage = 'Ungültige Kategorie. System wird korrigiert...'
+          setFormData(prev => ({ ...prev, category: 'artikel' }))
+        } else if (error.message.includes('uuid')) {
+          errorMessage = 'Ungültige Store-ID. Bitte wähle einen Store aus der Liste.'
+        } else {
+          errorMessage = `Datenformat-Fehler: ${error.message}`
+        }
+      } else if (error?.code === '22008') {
+        errorMessage = 'Ungültiges Datumsformat. Bitte verwende das Format YYYY-MM-DD.'
+      } else if (error?.code === '23502') {
+        errorMessage = 'Pflichtfeld fehlt. Alle mit * markierten Felder müssen ausgefüllt werden.'
       } else if (error?.message) {
         errorMessage = `Fehler: ${error.message}`
       }
@@ -256,7 +307,7 @@ export default function AdminCouponsPage() {
       
       // Auto-fill related fields based on structured data
       title: structuredData.couponValueText || prev.title,
-      category: structuredData.couponValueType === 'multiplier' ? 'aktion' as any : 
+      category: structuredData.couponValueType === 'multiplier' ? 'einkauf' :  // Fix: use valid enum 
                 structuredData.couponValueType === 'euro_amount' ? 'euro' as any :
                 structuredData.couponValueType === 'percentage' ? 'prozent' as any : prev.category
     }))
@@ -289,7 +340,18 @@ export default function AdminCouponsPage() {
       // Barcode data
       if (result.barcode) {
         updates.barcode_value = result.barcode.value
-        updates.barcode_type = result.barcode.format.toLowerCase()
+        // Map barcode format to valid DB enum
+        const formatMap: { [key: string]: string } = {
+          'ean_13': 'ean13',
+          'ean_8': 'ean8', 
+          'upc_a': 'upc_a',
+          'upc_e': 'upc_e',
+          'code_128': 'code128',  // Fix critical mapping
+          'code_39': 'code39',
+          'qr_code': 'qr'
+        }
+        const normalizedFormat = result.barcode.format.toLowerCase()
+        updates.barcode_type = formatMap[normalizedFormat] || 'other'
       }
       
       // Store name detection

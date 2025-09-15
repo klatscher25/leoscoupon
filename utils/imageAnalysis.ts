@@ -326,7 +326,7 @@ export const parseCouponText = (text: string) => {
   if (multiplierMatch) {
     result.multiplier = multiplierMatch[1]
     result.title = `${multiplierMatch[1]}FACH auf den Einkauf`
-    result.category = 'aktion'
+    result.category = 'einkauf'  // Fix: use valid enum value
   }
 
   // Parse percentage discount (20%, 10% etc.)
