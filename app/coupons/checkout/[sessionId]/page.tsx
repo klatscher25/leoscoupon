@@ -35,6 +35,13 @@ interface CouponDisplay {
   category_name: string;
 }
 
+interface PointsBreakdown {
+  einkaufMultiplier: number;
+  warengruppenMultiplier: number;
+  artikelMultiplier: number;
+  categories: { name: string; multiplier: number; type: string }[];
+}
+
 const CheckoutPage = () => {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
@@ -48,70 +55,53 @@ const CheckoutPage = () => {
   const [isCompleting, setIsCompleting] = useState(false);
   const [swipeStartX, setSwipeStartX] = useState(0);
   const [swipeCurrentX, setSwipeCurrentX] = useState(0);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pointsBreakdown, setPointsBreakdown] = useState<PointsBreakdown | null>(null);
+  const [screenWakeLock, setScreenWakeLock] = useState<any>(null);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponentClient();
 
+  // Auto-brightness and screen wake lock
   useEffect(() => {
-    if (authLoading) {
-      // Warten bis Auth Status geklärt ist
-      return;
-    }
-    
+    const setupScreenOptimization = async () => {
+      try {
+        // Request screen wake lock to keep screen on
+        if ('wakeLock' in navigator) {
+          const wakeLock = await (navigator as any).wakeLock.request('screen');
+          setScreenWakeLock(wakeLock);
+        }
+        
+        // Try to increase brightness (limited browser support)
+        if ('screen' in navigator && 'orientation' in (navigator as any).screen) {
+          // Mobile devices might support this
+          document.documentElement.style.filter = 'brightness(1.2)';
+        }
+      } catch (error) {
+        console.log('Screen optimization not available:', error);
+      }
+    };
+
+    setupScreenOptimization();
+
+    // Cleanup on unmount
+    return () => {
+      if (screenWakeLock) {
+        screenWakeLock.release();
+      }
+      document.documentElement.style.filter = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) return;
     if (!user) {
       router.push('/auth/login');
       return;
     }
-    
     if (sessionId) {
       loadSession();
     }
   }, [user, authLoading, sessionId, router]);
-
-  useEffect(() => {
-    // Enter fullscreen on component mount
-    enterFullscreen();
-    
-    // Prevent scroll and zoom
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.width = '100%';
-    document.body.style.height = '100%';
-    
-    // Cleanup on unmount
-    return () => {
-      exitFullscreen();
-      document.body.style.overflow = '';
-      document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
-    };
-  }, []);
-
-  const enterFullscreen = () => {
-    if (containerRef.current) {
-      if (containerRef.current.requestFullscreen) {
-        containerRef.current.requestFullscreen();
-      } else if ((containerRef.current as any).webkitRequestFullscreen) {
-        (containerRef.current as any).webkitRequestFullscreen();
-      } else if ((containerRef.current as any).msRequestFullscreen) {
-        (containerRef.current as any).msRequestFullscreen();
-      }
-      setIsFullscreen(true);
-    }
-  };
-
-  const exitFullscreen = () => {
-    if (document.exitFullscreen) {
-      document.exitFullscreen();
-    } else if ((document as any).webkitExitFullscreen) {
-      (document as any).webkitExitFullscreen();
-    } else if ((document as any).msExitFullscreen) {
-      (document as any).msExitFullscreen();
-    }
-    setIsFullscreen(false);
-  };
 
   const loadSession = async () => {
     try {
@@ -153,12 +143,49 @@ const CheckoutPage = () => {
       }));
 
       setCoupons(formattedCoupons);
+      
+      // Berechne Punkte-Breakdown
+      calculatePointsBreakdown(formattedCoupons);
     } catch (error) {
       console.error('Fehler beim Laden der Session:', error);
       router.push('/coupons/redeem');
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculatePointsBreakdown = (couponList: CouponDisplay[]) => {
+    let einkaufMultiplier = 1; // Basis 1x Punkte
+    let warengruppenMultiplier = 1;
+    let artikelMultiplier = 1;
+    const categories: { name: string; multiplier: number; type: string }[] = [];
+
+    couponList.forEach(coupon => {
+      if (coupon.category === 'einkauf') {
+        einkaufMultiplier += 0.5; // +50% für Einkauf-Coupons
+      } else if (coupon.category === 'warengruppe') {
+        warengruppenMultiplier += 1; // +100% für Warengruppen-Coupons
+        categories.push({ 
+          name: coupon.category_name, 
+          multiplier: 2, 
+          type: 'warengruppe' 
+        });
+      } else if (coupon.category === 'artikel') {
+        artikelMultiplier += 0.5; // +50% für Artikel-Coupons
+        categories.push({ 
+          name: coupon.category_name, 
+          multiplier: 1.5, 
+          type: 'artikel' 
+        });
+      }
+    });
+    
+    setPointsBreakdown({
+      einkaufMultiplier,
+      warengruppenMultiplier,
+      artikelMultiplier,
+      categories
+    });
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
@@ -172,14 +199,12 @@ const CheckoutPage = () => {
 
   const handleTouchEnd = () => {
     const deltaX = swipeCurrentX - swipeStartX;
-    const threshold = 100; // Minimum swipe distance
+    const threshold = 100;
 
     if (Math.abs(deltaX) > threshold) {
       if (deltaX > 0) {
-        // Swipe right - previous
         handlePrevious();
       } else {
-        // Swipe left - next
         handleNext();
       }
     }
@@ -205,7 +230,6 @@ const CheckoutPage = () => {
 
     setIsCompleting(true);
     try {
-      // Erstelle Redemption Records für jeden Coupon
       const redemptions = coupons.map((coupon, index) => ({
         coupon_id: coupon.id,
         user_id: user?.id,
@@ -221,7 +245,6 @@ const CheckoutPage = () => {
 
       if (redemptionError) throw redemptionError;
 
-      // Markiere Session als completed
       const { error: sessionError } = await supabase
         .from('redemption_sessions')
         .update({
@@ -232,7 +255,6 @@ const CheckoutPage = () => {
 
       if (sessionError) throw sessionError;
 
-      // Zeige Erfolgsmeldung und navigiere zurück
       alert('🎉 Coupons erfolgreich eingelöst!');
       router.push('/coupons');
     } catch (error) {
@@ -243,97 +265,197 @@ const CheckoutPage = () => {
     }
   };
 
-  const generateBarcode = (type: string, value: string) => {
-    // Für Demo-Zwecke zeigen wir Text + Striche
-    // In Produktion würde hier eine echte Barcode-Library verwendet
+  const generateEnhancedBarcode = (type: string, value: string) => {
     return (
-      <div className="text-center">
-        <div className="font-mono text-lg mb-2">{value}</div>
-        <div className="flex justify-center space-x-1">
-          {Array.from({ length: 30 }, (_, i) => (
-            <div
-              key={i}
-              className={`bg-black ${Math.random() > 0.5 ? 'w-1' : 'w-0.5'} h-16`}
-            />
-          ))}
+      <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
+        <div className="text-center">
+          <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
+            {value}
+          </div>
+          <div className="flex justify-center space-x-1 mb-4">
+            {Array.from({ length: 40 }, (_, i) => (
+              <div
+                key={i}
+                className={`bg-black ${
+                  Math.random() > 0.4 ? 'w-1' : 'w-0.5'
+                } h-20`}
+                style={{
+                  height: Math.random() > 0.7 ? '80px' : '60px'
+                }}
+              />
+            ))}
+          </div>
+          <div className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            {type}
+          </div>
+          <div className="text-xs text-gray-500 mt-2">
+            Zum Scannen bereithalten
+          </div>
         </div>
-        <div className="text-xs text-gray-600 mt-2">{type.toUpperCase()}</div>
       </div>
     );
   };
 
-  const getCurrentDisplayName = () => {
-    if (currentIndex === -1) return 'PAYBACK-Karte';
-    return coupons[currentIndex]?.title || 'Coupon';
+  const getStoreLogoUrl = (chainCode: string) => {
+    const storeLogos: { [key: string]: string } = {
+      'REWE': 'https://upload.wikimedia.org/wikipedia/commons/thumb/1/1d/REWE_Group_Logo.svg/1200px-REWE_Group_Logo.svg.png',
+      'DM': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Dm-drogerie_markt_Logo.svg/1200px-Dm-drogerie_markt_Logo.svg.png',
+      'ROSSMANN': 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/3a/Rossmann_Logo.svg/1200px-Rossmann_Logo.svg.png',
+      'SHELL': 'https://upload.wikimedia.org/wikipedia/en/thumb/e/e8/Shell_logo.svg/1200px-Shell_logo.svg.png',
+      'ARAL': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4e/Aral_logo.svg/1200px-Aral_logo.svg.png',
+      'REAL': 'https://logos-world.net/wp-content/uploads/2021/02/Real-Logo.png',
+      'PENNY': 'https://upload.wikimedia.org/wikipedia/commons/thumb/4/4b/Penny_Markt_logo.svg/1200px-Penny_Markt_logo.svg.png'
+    };
+    return storeLogos[chainCode.toUpperCase()] || null;
   };
 
   const renderPaybackCard = () => (
-    <div className="flex flex-col items-center justify-center h-full text-white">
-      <div className="text-center mb-8">
-        <div className="text-6xl mb-4">💳</div>
-        <h2 className="text-3xl font-bold mb-4">PAYBACK-Karte</h2>
-        <p className="text-xl opacity-90">Zeige diese Karte zuerst vor</p>
-      </div>
-      
-      <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full">
-        <div className="text-center">
-          <div className="text-2xl font-bold mb-4">PAYBACK</div>
-          {generateBarcode('CODE128', session?.payback_card_code || '')}
-          <div className="mt-4 text-lg font-mono">
-            {session?.payback_card_code}
+    <div className="flex flex-col h-full">
+      {/* Payback Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 rounded-t-3xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="text-white text-2xl font-bold mr-3">PAYBACK</div>
+            <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
+              <span className="text-blue-600 font-bold">P</span>
+            </div>
+          </div>
+          <div className="text-white text-sm opacity-90">
+            Meine Karte
           </div>
         </div>
       </div>
-      
-      <div className="mt-8 text-center">
-        <p className="text-sm opacity-75">Karten-Nummer</p>
-        <p className="text-lg">****{session?.payback_card_code?.slice(-4)}</p>
+
+      {/* Card Content */}
+      <div className="flex-1 bg-white px-6 py-8 rounded-b-3xl shadow-xl">
+        <div className="text-center mb-8">
+          <h2 className="text-2xl font-bold text-gray-800 mb-2">PAYBACK Karte</h2>
+          <p className="text-gray-600">Zuerst scannen lassen</p>
+        </div>
+        
+        {/* Enhanced Barcode */}
+        {generateEnhancedBarcode('CODE128', session?.payback_card_code || '')}
+        
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-500 mb-1">Kartennummer</p>
+          <p className="text-lg font-mono text-gray-800">****{session?.payback_card_code?.slice(-4)}</p>
+        </div>
+
+        {/* Points Multiplier Overview */}
+        {pointsBreakdown && (
+          <div className="mt-6 bg-blue-50 rounded-xl p-4">
+            <h3 className="font-bold text-gray-800 mb-3 text-center">🎯 Aktive Punktemultiplikatoren</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">🛒 Gesamter Einkauf:</span>
+                <span className="font-bold text-blue-600">{pointsBreakdown.einkaufMultiplier}x Punkte</span>
+              </div>
+              {pointsBreakdown.warengruppenMultiplier > 1 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">📦 Warengruppen:</span>
+                  <span className="font-bold text-green-600">{pointsBreakdown.warengruppenMultiplier}x Punkte</span>
+                </div>
+              )}
+              {pointsBreakdown.artikelMultiplier > 1 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">🏷️ Einzelartikel:</span>
+                  <span className="font-bold text-green-600">{pointsBreakdown.artikelMultiplier}x Punkte</span>
+                </div>
+              )}
+              {pointsBreakdown.categories.length > 0 && (
+                <div className="border-t pt-2">
+                  <p className="text-xs text-gray-500 mb-1">Spezielle Kategorien:</p>
+                  {pointsBreakdown.categories.map((cat, idx) => (
+                    <div key={idx} className="flex justify-between text-xs">
+                      <span className="text-gray-600">{cat.name}:</span>
+                      <span className="font-medium text-green-600">{cat.multiplier}x</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
 
-  const renderCoupon = (coupon: CouponDisplay) => (
-    <div className="flex flex-col items-center justify-center h-full text-white">
-      <div className="text-center mb-8">
-        <h2 className="text-2xl font-bold mb-2">{coupon.title}</h2>
-        {coupon.description && (
-          <p className="text-lg opacity-90 max-w-md">{coupon.description}</p>
-        )}
-        <div className="mt-4 flex items-center justify-center gap-4">
-          <span className="bg-white/20 px-3 py-1 rounded-full text-sm">
-            {coupon.category_name}
-          </span>
-          {coupon.value_amount && (
-            <span className="bg-green-500/30 px-3 py-1 rounded-full text-sm font-bold">
-              {coupon.value_type === 'points' ? `${coupon.value_amount} Pkt.` :
-               coupon.value_type === 'percentage' ? `${coupon.value_amount}%` :
-               `€${coupon.value_amount}`}
-            </span>
+  const renderCoupon = (coupon: CouponDisplay, index: number) => (
+    <div className="flex flex-col h-full">
+      {/* Store Header */}
+      <div className="bg-gradient-to-r from-blue-600 to-blue-800 px-6 py-4 rounded-t-3xl">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center">
+            <div className="text-white text-2xl font-bold mr-3">PAYBACK</div>
+            {session && getStoreLogoUrl(session.store.chain_code) && (
+              <img 
+                src={getStoreLogoUrl(session.store.chain_code)!} 
+                alt={session.store.name}
+                className="w-8 h-8 bg-white rounded p-1"
+              />
+            )}
+          </div>
+          <div className="text-white text-sm opacity-90">
+            Coupon {index + 1}/{coupons.length}
+          </div>
+        </div>
+      </div>
+
+      {/* Coupon Content */}
+      <div className="flex-1 bg-white px-6 py-8 rounded-b-3xl shadow-xl">
+        <div className="text-center mb-6">
+          <h2 className="text-xl font-bold text-gray-800 mb-2">{coupon.title}</h2>
+          {coupon.description && (
+            <p className="text-gray-600 text-sm">{coupon.description}</p>
           )}
+          <div className="mt-3 flex items-center justify-center gap-3">
+            <span className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-medium">
+              {coupon.category_name}
+            </span>
+            {coupon.value_amount && (
+              <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-bold">
+                {coupon.value_type === 'points' ? `+${coupon.value_amount} Pkt.` :
+                 coupon.value_type === 'percentage' ? `${coupon.value_amount}% Extra` :
+                 `€${coupon.value_amount} Rabatt`}
+              </span>
+            )}
+          </div>
         </div>
+        
+        {/* Enhanced Barcode */}
+        {generateEnhancedBarcode(coupon.barcode_type, coupon.barcode_value)}
+        
+        {/* Category Bonus Info */}
+        {pointsBreakdown && (
+          <div className="mt-6 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl p-4">
+            <h4 className="font-bold text-gray-800 mb-2 text-center">🎁 Aktive Multiplikatoren</h4>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-600">🛒 Einkauf:</span>
+                <span className="font-bold text-blue-600">{pointsBreakdown.einkaufMultiplier}x</span>
+              </div>
+              {pointsBreakdown.warengruppenMultiplier > 1 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">📦 Warengruppen:</span>
+                  <span className="font-bold text-green-600">{pointsBreakdown.warengruppenMultiplier}x</span>
+                </div>
+              )}
+              {pointsBreakdown.artikelMultiplier > 1 && (
+                <div className="flex justify-between">
+                  <span className="text-gray-600">🏷️ Artikel:</span>
+                  <span className="font-bold text-green-600">{pointsBreakdown.artikelMultiplier}x</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
-      
-      <div className="bg-white/20 backdrop-blur-sm rounded-2xl p-8 max-w-md w-full">
-        <div className="text-center">
-          {generateBarcode(coupon.barcode_type, coupon.barcode_value)}
-        </div>
-      </div>
-      
-      {coupon.image_url && (
-        <div className="mt-6">
-          <img 
-            src={coupon.image_url} 
-            alt={coupon.title}
-            className="w-24 h-24 object-cover rounded-lg"
-          />
-        </div>
-      )}
     </div>
   );
 
   if (authLoading || loading) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-900">
+      <div className="flex justify-center items-center min-h-screen bg-blue-50">
         <LoadingSpinner />
       </div>
     );
@@ -341,12 +463,12 @@ const CheckoutPage = () => {
 
   if (!session) {
     return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-900 text-white">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold mb-4">Session nicht gefunden</h1>
+      <div className="flex justify-center items-center min-h-screen bg-blue-50">
+        <div className="text-center bg-white rounded-2xl p-8 shadow-lg">
+          <h1 className="text-2xl font-bold mb-4 text-gray-800">Session nicht gefunden</h1>
           <button 
             onClick={() => router.push('/coupons/redeem')}
-            className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg"
+            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-medium transition-colors"
           >
             Zurück zur Auswahl
           </button>
@@ -355,92 +477,87 @@ const CheckoutPage = () => {
     );
   }
 
-  const totalSlides = coupons.length + 1; // +1 für PAYBACK-Karte
+  const totalSlides = coupons.length + 1;
 
   return (
     <div 
       ref={containerRef}
-      className="min-h-screen bg-gradient-to-br from-blue-900 via-purple-900 to-indigo-900 relative overflow-hidden"
+      className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 relative overflow-hidden"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 z-10 p-6">
-        <div className="flex items-center justify-between text-white">
+      {/* Fixed Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-b border-gray-200 px-4 py-3">
+        <div className="flex items-center justify-between">
           <div className="flex items-center">
-            <span className="text-2xl mr-3">🏪</span>
+            <div className="w-10 h-10 bg-blue-600 rounded-full flex items-center justify-center mr-3">
+              <span className="text-white font-bold text-lg">P</span>
+            </div>
             <div>
-              <h3 className="font-bold">{session.store.name}</h3>
-              <p className="text-sm opacity-75">Checkout</p>
+              <h3 className="font-bold text-gray-800 text-lg">PAYBACK</h3>
+              <p className="text-xs text-gray-600">{session.store.name}</p>
             </div>
           </div>
           <button
-            onClick={() => {
-              exitFullscreen();
-              router.back();
-            }}
-            className="bg-white/20 hover:bg-white/30 backdrop-blur-sm rounded-full p-2 transition-colors"
+            onClick={() => router.back()}
+            className="bg-gray-100 hover:bg-gray-200 rounded-full p-2 transition-colors"
           >
-            <span className="text-xl">✕</span>
+            <span className="text-gray-600 text-lg">✕</span>
           </button>
         </div>
       </div>
 
       {/* Progress Indicator */}
-      <div className="absolute top-24 left-0 right-0 z-10 px-6">
-        <div className="flex justify-center items-center space-x-2">
+      <div className="fixed top-20 left-0 right-0 z-40 px-6">
+        <div className="flex justify-center items-center space-x-2 mb-2">
           {Array.from({ length: totalSlides }, (_, i) => (
             <div
               key={i}
               className={`h-2 rounded-full transition-all duration-300 ${
                 i === currentIndex + 1 
-                  ? 'bg-white w-8' 
-                  : 'bg-white/30 w-2'
+                  ? 'bg-blue-600 w-8' 
+                  : 'bg-gray-300 w-2'
               }`}
             />
           ))}
         </div>
-        <div className="text-center mt-2 text-white/80 text-sm">
+        <div className="text-center text-gray-600 text-sm">
           {currentIndex + 2} von {totalSlides}
         </div>
       </div>
 
-      {/* Current Display Title */}
-      <div className="absolute top-40 left-0 right-0 z-10 text-center">
-        <h1 className="text-white text-xl font-bold">
-          {getCurrentDisplayName()}
-        </h1>
-      </div>
-
       {/* Main Content */}
-      <div className="pt-48 pb-32 px-6 h-full">
+      <div className="pt-32 pb-32 px-4 h-full">
         {currentIndex === -1 && renderPaybackCard()}
-        {currentIndex >= 0 && coupons[currentIndex] && renderCoupon(coupons[currentIndex])}
+        {currentIndex >= 0 && coupons[currentIndex] && renderCoupon(coupons[currentIndex], currentIndex)}
       </div>
 
-      {/* Navigation Controls */}
-      <div className="absolute bottom-8 left-0 right-0 px-6">
-        <div className="flex items-center justify-between">
+      {/* Enhanced Navigation Controls */}
+      <div className="fixed bottom-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-sm border-t border-gray-200 px-4 py-6">
+        <div className="flex items-center justify-between mb-4">
           <button
             onClick={handlePrevious}
             disabled={currentIndex <= -1}
-            className={`p-4 rounded-full transition-all ${
+            className={`flex items-center px-6 py-3 rounded-full font-medium transition-all ${
               currentIndex <= -1
-                ? 'bg-white/10 text-white/30'
-                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
             }`}
           >
-            <span className="text-xl">←</span>
+            <span className="text-xl mr-2">←</span>
+            <span className="hidden sm:inline">Zurück</span>
           </button>
 
-          <div className="text-center text-white">
-            <p className="text-sm opacity-75">Swipe nach links für nächsten</p>
+          <div className="text-center">
+            <p className="text-sm text-gray-600 mb-2">
+              {currentIndex === -1 ? 'PAYBACK Karte' : `Coupon ${currentIndex + 1}`}
+            </p>
             {currentIndex === coupons.length - 1 && (
               <button
                 onClick={completePurchase}
                 disabled={isCompleting}
-                className="mt-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-8 py-3 rounded-full text-white font-bold transition-colors"
+                className="bg-green-600 hover:bg-green-700 disabled:bg-green-800 px-8 py-3 rounded-full text-white font-bold transition-colors shadow-lg"
               >
                 {isCompleting ? '...' : '✓ Einlösung bestätigen'}
               </button>
@@ -450,27 +567,20 @@ const CheckoutPage = () => {
           <button
             onClick={handleNext}
             disabled={currentIndex >= coupons.length - 1}
-            className={`p-4 rounded-full transition-all ${
+            className={`flex items-center px-6 py-3 rounded-full font-medium transition-all ${
               currentIndex >= coupons.length - 1
-                ? 'bg-white/10 text-white/30'
-                : 'bg-white/20 hover:bg-white/30 text-white backdrop-blur-sm'
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-lg'
             }`}
           >
-            <span className="text-xl">→</span>
+            <span className="hidden sm:inline">Weiter</span>
+            <span className="text-xl ml-2">→</span>
           </button>
         </div>
 
         {/* Swipe Hint */}
-        <div className="text-center mt-4 text-white/60 text-xs">
-          👆 Tippe oder swipe um zu navigieren
-        </div>
-      </div>
-
-      {/* Value Summary */}
-      <div className="absolute bottom-32 right-6 bg-white/20 backdrop-blur-sm rounded-lg p-3 text-white text-sm">
-        <div className="text-center">
-          <p className="opacity-75">Gesamt</p>
-          <p className="font-bold">{session.total_value} Punkte</p>
+        <div className="text-center text-gray-500 text-xs">
+          💡 Wische nach links/rechts oder nutze die Pfeile zum Navigieren
         </div>
       </div>
     </div>
