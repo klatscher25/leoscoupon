@@ -111,6 +111,10 @@ const CouponRedeemPage = () => {
     }
   };
 
+  const requiresPaybackCard = () => {
+    return !paybackCard || paybackCard.trim() === '';
+  };
+
   const loadCouponsForStore = async (storeId: string) => {
     try {
       setLoading(true);
@@ -341,30 +345,64 @@ const CouponRedeemPage = () => {
 
       {step === 'store' && (
         <>
-          {/* PAYBACK Card Info */}
-          {paybackCard && (
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+          {/* PAYBACK Card Check */}
+          {requiresPaybackCard() ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg p-6 mb-6">
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  <svg className="h-6 w-6 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.732-.833-2.464 0L4.35 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                  </svg>
+                </div>
+                <div className="ml-3 flex-1">
+                  <h3 className="text-lg font-medium text-amber-800">
+                    💳 PAYBACK-Karte erforderlich
+                  </h3>
+                  <p className="mt-2 text-amber-700">
+                    Um Coupons einzulösen, benötigst du eine hinterlegte PAYBACK-Karte. 
+                    Diese wird beim Checkout automatisch angezeigt.
+                  </p>
+                  <div className="mt-4 flex flex-col sm:flex-row gap-3">
+                    <button
+                      onClick={() => router.push('/profile')}
+                      className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-3 rounded-lg font-medium transition-colors flex items-center justify-center"
+                    >
+                      📱 PAYBACK-Karte jetzt hinterlegen
+                    </button>
+                    <button
+                      onClick={() => router.push('/coupons')}
+                      className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-6 py-3 rounded-lg font-medium transition-colors"
+                    >
+                      Zurück zu Coupons
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
               <div className="flex items-center">
                 <span className="text-2xl mr-3">💳</span>
                 <div>
-                  <h3 className="font-medium text-blue-900">PAYBACK-Karte</h3>
-                  <p className="text-blue-700">***{paybackCard.slice(-4)}</p>
+                  <h3 className="font-medium text-green-900">PAYBACK-Karte hinterlegt ✅</h3>
+                  <p className="text-green-700">***{paybackCard.slice(-4)}</p>
                 </div>
               </div>
             </div>
           )}
 
-          {/* Store Selection */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {stores.map((store) => (
-              <div
-                key={store.id}
-                onClick={() => {
-                  setSelectedStore(store);
-                  loadCouponsForStore(store.id);
-                }}
-                className="p-6 border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-md cursor-pointer transition-all duration-200"
-              >
+          {/* Store Selection - Only show if PAYBACK card exists */}
+          {!requiresPaybackCard() && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {stores.map((store) => (
+                <div
+                  key={store.id}
+                  onClick={() => {
+                    setSelectedStore(store);
+                    loadCouponsForStore(store.id);
+                  }}
+                  className="p-6 border border-gray-200 rounded-lg hover:border-gray-300 hover:shadow-md cursor-pointer transition-all duration-200"
+                >
                 <div className="flex items-center mb-3">
                   <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center mr-4">
                     {store.logo_url ? (
@@ -390,7 +428,8 @@ const CouponRedeemPage = () => {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </>
       )}
 
