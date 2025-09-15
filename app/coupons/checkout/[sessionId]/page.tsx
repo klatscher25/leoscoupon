@@ -54,15 +54,20 @@ const CheckoutPage = () => {
   const supabase = createClientComponentClient();
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) {
+      // Warten bis Auth Status geklärt ist
+      return;
+    }
+    
+    if (!user) {
       router.push('/auth/login');
       return;
     }
     
-    if (user && sessionId) {
+    if (sessionId) {
       loadSession();
     }
-  }, [user, authLoading, sessionId]);
+  }, [user, authLoading, sessionId, router]);
 
   useEffect(() => {
     // Enter fullscreen on component mount

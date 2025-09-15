@@ -62,16 +62,20 @@ const CouponRedeemPage = () => {
   const supabase = createClientComponentClient();
 
   useEffect(() => {
-    if (!authLoading && !user) {
+    if (authLoading) {
+      // Warten bis Auth Status geklärt ist
+      return;
+    }
+    
+    if (!user) {
       router.push('/auth/login');
       return;
     }
     
-    if (user) {
-      loadStores();
-      loadUserPaybackCard();
-    }
-  }, [user, authLoading]);
+    // User ist authentifiziert, lade Daten
+    loadStores();
+    loadUserPaybackCard();
+  }, [user, authLoading, router]);
 
   const loadStores = async () => {
     try {

@@ -136,12 +136,75 @@ export default function DashboardPage() {
       <div className="p-4 lg:p-8">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-gray-900">
-            Willkommen zurück, {profile?.username}!
+          <h1 className="text-3xl font-bold text-gray-900">
+            Willkommen zurück, {profile?.username}! 👋
           </h1>
           <p className="text-gray-600">
-            Hier ist deine Übersicht über Coupons und Cashback
+            Nutze deine Coupons optimal beim Einkaufen
           </p>
+        </div>
+
+        {/* Hauptfunktionen - Prominente CTA Buttons */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* COUPON EINLÖSEN - Hauptfunktion */}
+          <Link 
+            href="/coupons/redeem"
+            className="group relative overflow-hidden bg-gradient-to-br from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 rounded-2xl p-8 text-white transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                  <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
+                  </svg>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold">{stats?.activeCoupons || 0}</div>
+                  <div className="text-green-100 text-sm">verfügbar</div>
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Coupons einlösen</h2>
+              <p className="text-green-100 mb-4">
+                Wähle deinen Laden und maximiere deine Ersparnisse
+              </p>
+              <div className="flex items-center text-sm font-medium">
+                <span>Jetzt einlösen</span>
+                <svg className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+          </Link>
+
+          {/* CASHBACK TRACKING - Zweite Hauptfunktion */}
+          <Link 
+            href="/cashback"
+            className="group relative overflow-hidden bg-gradient-to-br from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 rounded-2xl p-8 text-white transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
+          >
+            <div className="relative z-10">
+              <div className="flex items-center justify-between mb-4">
+                <div className="bg-white/20 backdrop-blur-sm rounded-xl p-3">
+                  <CurrencyDollarIcon className="h-8 w-8" />
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-bold">{formatCurrency(stats?.totalCashbackAmount || 0)}</div>
+                  <div className="text-blue-100 text-sm">erhalten</div>
+                </div>
+              </div>
+              <h2 className="text-2xl font-bold mb-2">Cashback tracken</h2>
+              <p className="text-blue-100 mb-4">
+                Verfolge deine Cashback-Aktionen und Auszahlungen
+              </p>
+              <div className="flex items-center text-sm font-medium">
+                <span>Status anzeigen</span>
+                <svg className="ml-2 h-4 w-4 transform group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                </svg>
+              </div>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent"></div>
+          </Link>
         </div>
 
         {loading ? (
