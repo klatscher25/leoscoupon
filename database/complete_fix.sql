@@ -200,18 +200,30 @@ INSERT INTO product_categories (code, name, description) VALUES
 ('elektronik', 'Elektronik', 'Smartphones, Computer, TV, Audio')
 ON CONFLICT (code) DO NOTHING;
 
--- Stores hinzufügen/aktualisieren
-INSERT INTO stores (name, chain_code, tags, is_active) VALUES
-('EDEKA', 'EDEKA', ARRAY['supermarkt', 'lebensmittel', 'payback'], true),
-('dm-drogerie markt', 'DM', ARRAY['drogerie', 'gesundheit', 'payback'], true),
-('Aral', 'ARAL', ARRAY['tankstelle', 'kraftstoff', 'payback'], true),
-('MediaMarkt', 'MEDIAMARKT', ARRAY['elektronik', 'technik', 'payback'], true),
-('REWE', 'REWE', ARRAY['supermarkt', 'lebensmittel', 'cashback'], true),
-('Lidl', 'LIDL', ARRAY['discounter', 'lebensmittel', 'cashback'], true)
-ON CONFLICT (name) DO UPDATE SET 
-    is_active = true,
-    tags = EXCLUDED.tags,
-    chain_code = EXCLUDED.chain_code;
+-- Stores hinzufügen (nur falls sie noch nicht existieren)
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'EDEKA', 'EDEKA', ARRAY['supermarkt', 'lebensmittel', 'payback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'EDEKA');
+
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'dm-drogerie markt', 'DM', ARRAY['drogerie', 'gesundheit', 'payback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'dm-drogerie markt');
+
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'Aral', 'ARAL', ARRAY['tankstelle', 'kraftstoff', 'payback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'Aral');
+
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'MediaMarkt', 'MEDIAMARKT', ARRAY['elektronik', 'technik', 'payback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'MediaMarkt');
+
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'REWE', 'REWE', ARRAY['supermarkt', 'lebensmittel', 'cashback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'REWE');
+
+INSERT INTO stores (name, chain_code, tags, is_active) 
+SELECT 'Lidl', 'LIDL', ARRAY['discounter', 'lebensmittel', 'cashback'], true
+WHERE NOT EXISTS (SELECT 1 FROM stores WHERE name = 'Lidl');
 
 -- Test-Coupons für EDEKA hinzufügen
 DO $$ 
@@ -261,8 +273,7 @@ BEGIN
             'euro',
             einkauf_category_id,
             true
-        )
-        ON CONFLICT DO NOTHING;
+        );
     END IF;
 END $$;
 
