@@ -6,18 +6,23 @@ import Link from 'next/link'
 import { signIn } from '@/lib/auth'
 import { useAuth } from '@/hooks/useAuth'
 import LoadingSpinner from '@/components/ui/LoadingSpinner'
+import { clearSupabaseCache } from '@/utils/clearBrowserCache'
+import LoginDebugger from '@/components/auth/LoginDebugger'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [retryCount, setRetryCount] = useState(0)
   
   const { user } = useAuth()
   const router = useRouter()
 
   useEffect(() => {
     if (user) {
+      console.log('🔄 User authenticated, redirecting to dashboard...')
+      setLoading(false) // Ensure loading stops
       router.push('/dashboard')
     }
   }, [user, router])
@@ -28,13 +33,41 @@ export default function LoginPage() {
     setError('')
 
     try {
-      await signIn(email, password)
-      router.push('/dashboard')
+      console.log('🔐 Starting login process...')
+      const result = await signIn(email, password)
+      console.log('✅ Login successful:', !!result.user)
+      
+      // Don't redirect here - let useAuth hook handle it to prevent race condition
+      // router.push('/dashboard') - REMOVED to prevent double redirect
+      
     } catch (err: any) {
-      setError(err.message || 'Anmeldung fehlgeschlagen')
-    } finally {
-      setLoading(false)
+      console.error('❌ Login error:', err)
+      setRetryCount(prev => prev + 1)
+      
+      let errorMessage = err.message || 'Anmeldung fehlgeschlagen'
+      
+      // Provide helpful error messages and retry logic
+      if (err.message?.includes('timeout')) {
+        errorMessage = 'Verbindung zeitüberschritten. Cache wird geleert...';
+        clearSupabaseCache()
+        setTimeout(() => {
+          setError('Bitte versuche es erneut nach dem Cache-Clearing.')
+        }, 1000)
+      } else if (err.message?.includes('Invalid login credentials')) {
+        errorMessage = 'Ungültige Anmeldedaten. Bitte überprüfe E-Mail und Passwort.'
+      } else if (retryCount >= 2) {
+        errorMessage = 'Mehrere Versuche fehlgeschlagen. Cache wird geleert...';
+        clearSupabaseCache()
+        setTimeout(() => {
+          setError('Seite wird neu geladen...')
+          window.location.reload()
+        }, 2000)
+      }
+      
+      setError(errorMessage)
+      setLoading(false) // Only set loading to false on error
     }
+    // Don't set loading to false on success - let redirect handle it
   }
 
   return (
@@ -95,7 +128,20 @@ export default function LoginPage() {
 
           {error && (
             <div className="rounded-md bg-red-50 p-4">
-              <div className="text-sm text-red-700">{error}</div>
+              <div className="text-sm text-red-700 mb-2">{error}</div>
+              {retryCount >= 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    clearSupabaseCache()
+                    setError('Cache geleert! Versuche es jetzt erneut.')
+                    setRetryCount(0)
+                  }}
+                  className="text-xs bg-red-100 hover:bg-red-200 px-2 py-1 rounded text-red-800"
+                >
+                  🗑️ Cache manuell leeren
+                </button>
+              )}
             </div>
           )}
 
@@ -108,7 +154,7 @@ export default function LoginPage() {
               {loading ? (
                 <div className="flex items-center justify-center">
                   <LoadingSpinner size="sm" className="mr-2" />
-                  Anmelden...
+                  {retryCount > 0 ? `Anmelden... (Versuch ${retryCount + 1})` : 'Anmelden...'}
                 </div>
               ) : (
                 'Anmelden'
@@ -128,6 +174,9 @@ export default function LoginPage() {
             </p>
           </div>
         </form>
+
+        {/* Debug Tool - nur in Development */}
+        {process.env.NODE_ENV === 'development' && <LoginDebugger />}
 
         {/* Features */}
         <div className="mt-8 pt-8 border-t border-gray-200">

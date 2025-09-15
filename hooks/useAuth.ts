@@ -35,10 +35,10 @@ export function useAuth() {
       try {
         console.log('🔍 Getting initial session...')
         
-        // Add timeout to prevent infinite hanging
+        // Add timeout to prevent infinite hanging (increased to 15s for slow connections)
         const sessionPromise = supabase.auth.getSession()
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Session timeout')), 10000)
+          setTimeout(() => reject(new Error('Session timeout')), 15000)
         )
         
         const { data: { session }, error: sessionError } = await Promise.race([
@@ -99,6 +99,12 @@ export function useAuth() {
         if (error && typeof error === 'object' && 'message' in error && error.message === 'Session timeout') {
           console.log('🗑️ Session timeout - clearing cache and setting to logged out')
           clearSupabaseCache()
+          // Force page reload to reset all state after cache clear
+          setTimeout(() => {
+            if (typeof window !== 'undefined') {
+              window.location.reload()
+            }
+          }, 1000)
         }
         
         setAuthState({

@@ -50,13 +50,40 @@ export async function signUp(email: string, password: string, username: string) 
 export async function signIn(email: string, password: string) {
   const supabase = createClientComponentClient()
   
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password,
-  })
-  
-  if (error) throw error
-  return data
+  try {
+    console.log('🔐 Attempting login with timeout protection...')
+    
+    // Add timeout protection for login request
+    const loginPromise = supabase.auth.signInWithPassword({
+      email,
+      password,
+    })
+    
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Login timeout - Bitte versuche es erneut')), 20000)
+    )
+    
+    const { data, error } = await Promise.race([
+      loginPromise,
+      timeoutPromise
+    ]) as any
+    
+    if (error) {
+      console.error('🚫 Login error:', error)
+      throw error
+    }
+    
+    console.log('✅ Login successful')
+    return data
+    
+  } catch (error: any) {
+    // Clear cache on login failure to prevent stuck state
+    if (typeof window !== 'undefined') {
+      const { clearSupabaseCache } = await import('@/utils/clearBrowserCache')
+      clearSupabaseCache()
+    }
+    throw error
+  }
 }
 
 export async function signOut() {

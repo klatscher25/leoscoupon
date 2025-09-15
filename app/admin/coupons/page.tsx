@@ -35,11 +35,7 @@ interface CouponForm {
   barcode_value: string
   valid_from: string
   valid_until: string
-  discount_amount: string
-  discount_percentage: string
   minimum_purchase_amount: string
-  per_user_limit: number
-  per_payback_limit: number
   conditions: string
   is_combinable: boolean
   combinable_with_categories: Database['public']['Enums']['coupon_category'][]
@@ -67,11 +63,7 @@ export default function AdminCouponsPage() {
     barcode_value: '',
     valid_from: new Date().toISOString().split('T')[0],
     valid_until: '',
-    discount_amount: '',
-    discount_percentage: '',
     minimum_purchase_amount: '',
-    per_user_limit: 1,
-    per_payback_limit: 1,
     conditions: '',
     is_combinable: true,
     combinable_with_categories: ['warengruppe', 'artikel']
@@ -126,14 +118,32 @@ export default function AdminCouponsPage() {
     if (!user) return
 
     try {
+      console.log('💾 Saving coupon with data:', formData)
+      
       const couponData = {
-        ...formData,
-        discount_amount: formData.discount_amount ? parseFloat(formData.discount_amount) : null,
-        discount_percentage: formData.discount_percentage ? parseInt(formData.discount_percentage) : null,
+        title: formData.title,
+        description: formData.description,
+        category: formData.category,
+        store_id: formData.store_id,
+        barcode_type: formData.barcode_type,
+        barcode_value: formData.barcode_value,
+        valid_from: formData.valid_from,
+        valid_until: formData.valid_until,
         minimum_purchase_amount: formData.minimum_purchase_amount ? parseFloat(formData.minimum_purchase_amount) : null,
+        conditions: formData.conditions,
+        is_combinable: formData.is_combinable,
+        combinable_with_categories: formData.combinable_with_categories,
+        // Structured fields
+        detected_store_name: formData.detected_store_name || null,
+        coupon_value_type: formData.coupon_value_type || null,
+        coupon_value_numeric: formData.coupon_value_numeric || null,
+        coupon_value_text: formData.coupon_value_text || null,
+        generated_barcode_url: formData.generated_barcode_url || null,
         image_url: couponPhotoUrl || null,
         created_by: user.id
       }
+      
+      console.log('💾 Final coupon data:', couponData)
 
       if (editingId) {
         const { error } = await supabase
@@ -168,11 +178,7 @@ export default function AdminCouponsPage() {
       barcode_value: coupon.barcode_value,
       valid_from: coupon.valid_from,
       valid_until: coupon.valid_until,
-      discount_amount: coupon.discount_amount?.toString() || '',
-      discount_percentage: coupon.discount_percentage?.toString() || '',
       minimum_purchase_amount: coupon.minimum_purchase_amount?.toString() || '',
-      per_user_limit: coupon.per_user_limit || 1,
-      per_payback_limit: coupon.per_payback_limit || 1,
       conditions: coupon.conditions || '',
       is_combinable: coupon.is_combinable || false,
       combinable_with_categories: coupon.combinable_with_categories || []
@@ -272,11 +278,15 @@ export default function AdminCouponsPage() {
         updates.coupon_value_type = result.structuredData.discountType
         updates.coupon_value_text = result.structuredData.discountText || ''
         
-        // Fill specific discount fields based on type
+        // Store structured discount data in new fields
         if (result.structuredData.discountType === 'euro') {
-          updates.discount_amount = result.structuredData.discountValue.toString()
+          updates.coupon_value_type = 'euro_amount'
+          updates.coupon_value_numeric = result.structuredData.discountValue
+          updates.coupon_value_text = `${result.structuredData.discountValue}€ Rabatt`
         } else if (result.structuredData.discountType === 'percentage') {
-          updates.discount_percentage = result.structuredData.discountValue.toString()
+          updates.coupon_value_type = 'percentage'
+          updates.coupon_value_numeric = result.structuredData.discountValue
+          updates.coupon_value_text = `${result.structuredData.discountValue}% Rabatt`
         }
       }
       
@@ -391,13 +401,15 @@ export default function AdminCouponsPage() {
       ...prev,
       title: parsed.title || prev.title,
       description: parsed.description || prev.description,
-      discount_amount: parsed.discount_amount || prev.discount_amount,
-      discount_percentage: parsed.discount_percentage || prev.discount_percentage,
       minimum_purchase_amount: parsed.minimum_purchase_amount || prev.minimum_purchase_amount,
       valid_until: parsed.valid_until || prev.valid_until,
       conditions: parsed.conditions || prev.conditions,
       category: parsed.category || prev.category,
-      store_id: storeToSet || prev.store_id
+      store_id: storeToSet || prev.store_id,
+      // Store structured data if available
+      coupon_value_type: parsed.coupon_value_type || prev.coupon_value_type,
+      coupon_value_numeric: parsed.coupon_value_numeric || prev.coupon_value_numeric,
+      coupon_value_text: parsed.coupon_value_text || prev.coupon_value_text
     }))
   }
 
@@ -436,16 +448,22 @@ export default function AdminCouponsPage() {
   const parseCouponText = (text: string) => {
     const result: Partial<CouponForm> = {}
     
-    // Parse discount amount (5€, 10€, etc.)
+    // Parse discount amount (5€, 10€, etc.) and store in structured fields
     const discountMatch = text.match(/(\d+)\s*[€€]/g)
     if (discountMatch) {
-      result.discount_amount = discountMatch[0].replace(/[€€\s]/g, '')
+      const value = parseInt(discountMatch[0].replace(/[€€\s]/g, ''))
+      result.coupon_value_type = 'euro_amount'
+      result.coupon_value_numeric = value
+      result.coupon_value_text = `${value}€ Rabatt`
     }
     
-    // Parse percentage discount (10%, 20%, etc.)
+    // Parse percentage discount (10%, 20%, etc.) and store in structured fields
     const percentageMatch = text.match(/(\d+)\s*%/g)
     if (percentageMatch && !discountMatch) {
-      result.discount_percentage = percentageMatch[0].replace(/[%\s]/g, '')
+      const value = parseInt(percentageMatch[0].replace(/[%\s]/g, ''))
+      result.coupon_value_type = 'percentage'
+      result.coupon_value_numeric = value
+      result.coupon_value_text = `${value}% Rabatt`
     }
     
     // Parse minimum amount patterns
@@ -555,11 +573,7 @@ export default function AdminCouponsPage() {
       barcode_value: '',
       valid_from: new Date().toISOString().split('T')[0],
       valid_until: '',
-      discount_amount: '',
-      discount_percentage: '',
       minimum_purchase_amount: '',
-      per_user_limit: 1,
-      per_payback_limit: 1,
       conditions: '',
       is_combinable: true,
       combinable_with_categories: ['warengruppe', 'artikel']
@@ -796,50 +810,16 @@ export default function AdminCouponsPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="label">Rabattbetrag (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      className="input"
-                      value={formData.discount_amount}
-                      onChange={(e) => setFormData({...formData, discount_amount: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Rabatt (%)</label>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      className="input"
-                      value={formData.discount_percentage}
-                      onChange={(e) => setFormData({...formData, discount_percentage: e.target.value})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Pro User Limit</label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="input"
-                      value={formData.per_user_limit}
-                      onChange={(e) => setFormData({...formData, per_user_limit: parseInt(e.target.value)})}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="label">Pro Payback Limit</label>
-                    <input
-                      type="number"
-                      min="1"
-                      className="input"
-                      value={formData.per_payback_limit}
-                      onChange={(e) => setFormData({...formData, per_payback_limit: parseInt(e.target.value)})}
-                    />
-                  </div>
+                  {/* Structured coupon value display */}
+                  {formData.coupon_value_text && (
+                    <div>
+                      <label className="label">Erkannter Coupon-Wert</label>
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <span className="text-green-800 font-medium">{formData.coupon_value_text}</span>
+                        <span className="text-green-600 text-sm ml-2">({formData.coupon_value_type})</span>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
