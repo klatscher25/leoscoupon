@@ -183,6 +183,10 @@ export default function AdminCouponsPage() {
         errorMessage = 'Barcode bereits vorhanden. Bitte wähle einen anderen Barcode.'
       } else if (error?.code === '23503') {
         errorMessage = 'Store ID ungültig. Bitte wähle einen gültigen Store.'
+      } else if (error?.message?.includes('invalid input value for enum barcode_type')) {
+        errorMessage = 'Ungültiger Barcode-Typ. Bitte wähle einen gültigen Typ aus der Liste.'
+        // Reset to valid default
+        setFormData(prev => ({ ...prev, barcode_type: 'ean13' }))
       } else if (error?.message) {
         errorMessage = `Fehler: ${error.message}`
       }

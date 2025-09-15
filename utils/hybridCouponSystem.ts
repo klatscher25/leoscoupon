@@ -259,7 +259,7 @@ export class HybridCouponSystem {
         // Long number sequences
         {
           pattern: /\b\d{10,16}\b/g,
-          format: 'CODE_128',
+          format: 'code128',  // Fix: use DB enum value
           description: 'Long number sequence'
         }
       ]
@@ -549,17 +549,18 @@ export class HybridCouponSystem {
   }
 
   private mapZxingFormat(zxingFormat: any): string {
+    // Map to exact DB enum values from schema.sql
     const formatMap: { [key: string]: string } = {
-      'EAN_13': 'EAN_13',
-      'EAN_8': 'EAN_8',
-      'UPC_A': 'UPC_A',
-      'UPC_E': 'UPC_E',
-      'CODE_128': 'CODE_128',
-      'CODE_39': 'CODE_39',
-      'QR_CODE': 'QR_CODE'
+      'EAN_13': 'ean13',
+      'EAN_8': 'ean8',
+      'UPC_A': 'upc_a',
+      'UPC_E': 'upc_e',
+      'CODE_128': 'code128',  // Fix: DB has code128 not CODE_128
+      'CODE_39': 'code39',
+      'QR_CODE': 'qr'
     }
     
-    return formatMap[zxingFormat] || 'CODE_128'
+    return formatMap[zxingFormat] || 'other'
   }
 
   async cleanup() {

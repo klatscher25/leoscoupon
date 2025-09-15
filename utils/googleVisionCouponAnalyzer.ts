@@ -357,11 +357,12 @@ export class GoogleVisionCouponAnalyzer {
    * Determine barcode format based on pattern and length
    */
   private determineBarcodeFormat(barcode: string): string {
-    if (barcode.length === 13) return 'EAN_13'
-    if (barcode.length === 8) return 'EAN_8'
-    if (barcode.length === 12) return 'UPC_A'
-    if (barcode.length > 13) return 'CODE_128'
-    return 'UNKNOWN'
+    // Match exact DB enum values from schema.sql
+    if (barcode.length === 13) return 'ean13'
+    if (barcode.length === 8) return 'ean8'
+    if (barcode.length === 12) return 'upc_a'
+    if (barcode.length > 13) return 'code128'  // Fix: DB has code128 not CODE_128
+    return 'other'
   }
 
   /**
