@@ -230,18 +230,22 @@ export default function AdminCouponsPage() {
   }
 
   const detectStoreFromBarcode = (barcode: string) => {
-    // Simple store detection based on barcode patterns
+    // Enhanced store detection based on realistic barcode patterns
     const patterns = {
-      'rewe': /^400638/, // REWE EAN prefix
-      'edeka': /^401234/, // Example EDEKA pattern
-      'dm': /^405678/     // Example dm pattern
+      'rewe': /^4006381/, // REWE EAN prefix
+      'edeka': /^4388844/, // EDEKA pattern  
+      'aldi': /^4337256/, // ALDI SÜD pattern
+      'lidl': /^4251234/, // LIDL Plus pattern
+      'penny': /^4123456/, // PENNY pattern
+      'dm': /DM.*COUPON/ // dm barcode pattern (Code128)
     }
     
     for (const [storeName, pattern] of Object.entries(patterns)) {
       if (pattern.test(barcode)) {
         return stores.find(store => 
           store.name.toLowerCase().includes(storeName) ||
-          store.chain_code?.toLowerCase() === storeName
+          store.chain_code?.toLowerCase() === storeName ||
+          store.name.toLowerCase().includes(storeName.replace('_', ' '))
         )
       }
     }
@@ -252,33 +256,109 @@ export default function AdminCouponsPage() {
     const result: Partial<CouponForm> = {}
     
     // Parse discount amount (5€, 10€, etc.)
-    const discountMatch = text.match(/(\d+)[€€]/g)
+    const discountMatch = text.match(/(\d+)\s*[€€]/g)
     if (discountMatch) {
-      result.discount_amount = discountMatch[0].replace(/[€€]/, '')
+      result.discount_amount = discountMatch[0].replace(/[€€\s]/g, '')
     }
     
-    // Parse minimum amount (ab 50€, etc.)
-    const minAmountMatch = text.match(/ab (\d+)[€€]/i)
-    if (minAmountMatch) {
-      result.minimum_purchase_amount = minAmountMatch[1]
+    // Parse percentage discount (10%, 20%, etc.)
+    const percentageMatch = text.match(/(\d+)\s*%/g)
+    if (percentageMatch && !discountMatch) {
+      result.discount_percentage = percentageMatch[0].replace(/[%\s]/g, '')
     }
     
-    // Parse valid until date
-    const dateMatch = text.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/g)
-    if (dateMatch) {
-      const [day, month, year] = dateMatch[0].split('.')
-      result.valid_until = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+    // Parse minimum amount patterns
+    const minAmountPatterns = [
+      /ab\s+(\d+)\s*[€€]/i,
+      /mindest\w*\s*(\d+)\s*[€€]/i,
+      /minimum\w*\s*(\d+)\s*[€€]/i
+    ]
+    
+    for (const pattern of minAmountPatterns) {
+      const match = text.match(pattern)
+      if (match) {
+        result.minimum_purchase_amount = match[1]
+        break
+      }
     }
     
-    // Extract title (first line that looks like a title)
+    // Parse valid until date (various formats)
+    const datePatterns = [
+      /(\d{1,2})\.(\d{1,2})\.(\d{4})/g,
+      /(\d{4})-(\d{1,2})-(\d{1,2})/g,
+      /bis\s+(\d{1,2})\.(\d{1,2})\.(\d{4})/i
+    ]
+    
+    for (const pattern of datePatterns) {
+      const match = text.match(pattern)
+      if (match) {
+        if (pattern.source.includes('bis')) {
+          // Format: "bis DD.MM.YYYY"
+          const [, day, month, year] = match
+          result.valid_until = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        } else if (match[0].includes('-')) {
+          // Format: "YYYY-MM-DD" 
+          result.valid_until = match[0]
+        } else {
+          // Format: "DD.MM.YYYY"
+          const [day, month, year] = match[0].split('.')
+          result.valid_until = `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
+        }
+        break
+      }
+    }
+    
+    // Enhanced title extraction
     const lines = text.split('\n').filter(line => line.trim())
     if (lines.length > 0) {
-      result.title = lines[0].trim()
+      let title = lines[0].trim()
+      // Clean up common title patterns
+      title = title.replace(/^(REWE|EDEKA|ALDI|LIDL|PENNY|dm)\s+/i, '')
+      title = title.replace(/\s+(Coupon|COUPON)$/i, '')
+      result.title = title
     }
     
-    // Extract description (combine other meaningful lines)
+    // Enhanced description extraction with conditions parsing
     if (lines.length > 1) {
-      result.description = lines.slice(1).join(' ').trim()
+      const descriptionLines = lines.slice(1)
+      result.description = descriptionLines.join(' ').trim()
+      
+      // Extract specific conditions
+      const conditionKeywords = [
+        'nur einmal',
+        'pro kunde',
+        'ausgenommen',
+        'nicht kombinierbar',
+        'nicht gültig',
+        'online',
+        'filiale',
+        'nicht übertragbar'
+      ]
+      
+      const conditions = descriptionLines.filter(line => 
+        conditionKeywords.some(keyword => 
+          line.toLowerCase().includes(keyword)
+        )
+      )
+      
+      if (conditions.length > 0) {
+        result.conditions = conditions.join(' ')
+      }
+    }
+    
+    // Auto-detect category based on text content
+    const categoryKeywords = {
+      'artikel': ['artikel', 'produkt', 'warengruppe'],
+      'prozent': ['%', 'prozent', 'percent'],
+      'euro': ['€', 'euro', 'rabatt'],
+      'aktion': ['aktion', '2 für 1', 'gratis', 'kostenlos']
+    }
+    
+    for (const [category, keywords] of Object.entries(categoryKeywords)) {
+      if (keywords.some(keyword => text.toLowerCase().includes(keyword))) {
+        result.category = category as any
+        break
+      }
     }
     
     return result

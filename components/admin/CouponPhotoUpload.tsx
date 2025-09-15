@@ -28,6 +28,8 @@ export default function CouponPhotoUpload({
   const [showPreview, setShowPreview] = useState(false)
   const [analyzing, setAnalyzing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
+  const galleryInputRef = useRef<HTMLInputElement>(null)
   const supabase = createClientComponentClient()
 
   const handleFileUpload = async (file: File) => {
@@ -70,25 +72,55 @@ export default function CouponPhotoUpload({
   const analyzeImage = async (imageUrl: string) => {
     setAnalyzing(true)
     try {
-      // Simulate barcode detection (in real app, you'd use a service like ZXing or Google Vision API)
-      // For now, we'll extract potential barcode patterns from filename or simulate detection
-      
       console.log('🔍 Analyzing image for barcodes and text...')
       
-      // Simulate some analysis results
+      // Simulate realistic coupon analysis with various shop examples
       setTimeout(() => {
-        // Mock barcode detection
-        const mockBarcode = '4006381333931' // Example EAN-13
-        const mockText = 'REWE Coupon\n5€ Rabatt ab 50€ Einkauf\nGültig bis 31.12.2024'
+        // Random selection of different coupon types
+        const mockCoupons = [
+          {
+            barcode: '4006381333931',
+            type: 'ean13',
+            text: 'REWE Coupon\n5€ Rabatt ab 50€ Einkauf\nGültig bis 31.12.2024\nNur einmal pro Kunde einlösbar'
+          },
+          {
+            barcode: '4388844000022',
+            type: 'ean13', 
+            text: 'EDEKA Coupon\n10% Rabatt auf Obst & Gemüse\nGültig bis 15.01.2025\nMindestbestellwert: 25€'
+          },
+          {
+            barcode: '4337256775544',
+            type: 'ean13',
+            text: 'ALDI SÜD\n3€ Rabatt ab 30€ Einkauf\nGültig bis 28.02.2025\nAusgenommen: Alkohol, Tabak'
+          },
+          {
+            barcode: '4251234567890',
+            type: 'ean13',
+            text: 'LIDL Plus Coupon\n2 für 1 Aktion\nAlle Backwaren\nGültig bis 10.03.2025'
+          },
+          {
+            barcode: '4123456789012',
+            type: 'ean13',
+            text: 'PENNY Coupon\n15% Rabatt auf Fleisch & Wurst\nGültig bis 05.04.2025\nMindestbestellwert: 20€'
+          },
+          {
+            barcode: 'DM2024COUPON15',
+            type: 'code128',
+            text: 'dm-drogerie markt\n20% Rabatt auf Eigenmarken\nGültig bis 30.06.2025\nOnline & in der Filiale'
+          }
+        ]
         
-        console.log('📷 Detected barcode:', mockBarcode)
-        console.log('📝 Extracted text:', mockText)
+        // Select random coupon
+        const selectedCoupon = mockCoupons[Math.floor(Math.random() * mockCoupons.length)]
         
-        onBarcodeDetected?.(mockBarcode, 'ean13')
-        onTextExtracted?.(mockText)
+        console.log('📷 Detected barcode:', selectedCoupon.barcode)
+        console.log('📝 Extracted text:', selectedCoupon.text)
+        
+        onBarcodeDetected?.(selectedCoupon.barcode, selectedCoupon.type)
+        onTextExtracted?.(selectedCoupon.text)
         
         setAnalyzing(false)
-      }, 2000)
+      }, 1500) // Slightly faster analysis
       
     } catch (error) {
       console.error('Analysis error:', error)
@@ -111,10 +143,24 @@ export default function CouponPhotoUpload({
     }
   }
 
+  const handleCameraClick = () => {
+    cameraInputRef.current?.click()
+  }
+
+  const handleGalleryClick = () => {
+    galleryInputRef.current?.click()
+  }
+
   const clearPhoto = () => {
     setPhotoUrl('')
     if (fileInputRef.current) {
       fileInputRef.current.value = ''
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = ''
+    }
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = ''
     }
   }
 
@@ -126,59 +172,76 @@ export default function CouponPhotoUpload({
 
       {/* Upload Area */}
       {!photoUrl ? (
-        <div
-          onDrop={handleDrop}
-          onDragOver={(e) => e.preventDefault()}
-          className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors cursor-pointer"
-          onClick={() => fileInputRef.current?.click()}
-        >
+        <div>
+          {/* Hidden File Inputs */}
           <input
             ref={fileInputRef}
             type="file"
             accept="image/*"
-            capture="environment" // iPhone camera
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <input
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
             onChange={handleFileSelect}
             className="hidden"
           />
           
-          {uploading ? (
-            <div className="space-y-2">
-              <ArrowUpTrayIcon className="h-8 w-8 text-gray-400 mx-auto animate-pulse" />
-              <p className="text-sm text-gray-600">Uploading...</p>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <PhotoIcon className="h-8 w-8 text-gray-400 mx-auto" />
-              <div className="text-sm text-gray-600">
-                <p className="font-medium">Foto hochladen oder hierher ziehen</p>
-                <p>PNG, JPG, HEIC bis zu 10MB</p>
+          {/* Drag & Drop Area */}
+          <div
+            onDrop={handleDrop}
+            onDragOver={(e) => e.preventDefault()}
+            className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-gray-400 transition-colors"
+          >
+            {uploading ? (
+              <div className="space-y-2">
+                <ArrowUpTrayIcon className="h-8 w-8 text-gray-400 mx-auto animate-pulse" />
+                <p className="text-sm text-gray-600">Uploading...</p>
               </div>
-              <div className="flex justify-center space-x-2 mt-3">
-                <button
-                  type="button"
-                  className="btn-outline text-xs py-1 px-3"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    fileInputRef.current?.click()
-                  }}
-                >
-                  <CameraIcon className="h-3 w-3 mr-1" />
-                  Kamera
-                </button>
-                <button
-                  type="button"
-                  className="btn-outline text-xs py-1 px-3"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    fileInputRef.current?.click()
-                  }}
-                >
-                  <PhotoIcon className="h-3 w-3 mr-1" />
-                  Galerie
-                </button>
+            ) : (
+              <div className="space-y-4">
+                <PhotoIcon className="h-8 w-8 text-gray-400 mx-auto" />
+                <div className="text-sm text-gray-600">
+                  <p className="font-medium">Foto hochladen oder hierher ziehen</p>
+                  <p>PNG, JPG, HEIC bis zu 10MB</p>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="flex justify-center space-x-3 mt-4">
+                  <button
+                    type="button"
+                    onClick={handleCameraClick}
+                    className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                  >
+                    <CameraIcon className="h-4 w-4 mr-2" />
+                    📷 Kamera
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleGalleryClick}
+                    className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors text-sm font-medium"
+                  >
+                    <PhotoIcon className="h-4 w-4 mr-2" />
+                    🖼️ Galerie
+                  </button>
+                </div>
+                
+                <div className="text-xs text-gray-500 mt-2">
+                  Kamera = Live-Foto aufnehmen • Galerie = Vorhandenes Bild auswählen
+                </div>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       ) : (
         /* Photo Preview */
