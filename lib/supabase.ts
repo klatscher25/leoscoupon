@@ -7,6 +7,7 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 // SINGLETON CLIENT PATTERN - verhindert Multiple GoTrueClient instances
 let clientInstance: ReturnType<typeof createClient<Database>> | null = null
 
+// Nur echten Client erstellen wenn Environment Variables verfügbar
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
 
 // Client-side Supabase client (Singleton)
