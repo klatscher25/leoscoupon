@@ -1,7 +1,16 @@
 'use client'
 
 import React, { useState, useRef } from 'react'
-import { FolderIcon, LinkIcon, PlayIcon, StopIcon, CheckCircleIcon, XCircleIcon, EyeIcon, DollarSignIcon } from 'lucide-react'
+import { 
+  FolderIcon, 
+  LinkIcon, 
+  PlayIcon, 
+  StopIcon, 
+  CheckCircleIcon, 
+  XCircleIcon, 
+  EyeIcon,
+  CurrencyDollarIcon as DollarSignIcon 
+} from '@heroicons/react/24/outline'
 import { GoogleVisionCouponAnalyzer, GoogleVisionCouponResult } from '../../utils/googleVisionCouponAnalyzer'
 
 interface GoogleDriveBatchUploadProps {
