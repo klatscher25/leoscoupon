@@ -96,7 +96,7 @@ export function useAuth() {
         console.error('Auth error:', error)
         
         // If session times out or fails, clear cache and retry once
-        if (error.message === 'Session timeout') {
+        if (error && typeof error === 'object' && 'message' in error && error.message === 'Session timeout') {
           console.log('🗑️ Session timeout - clearing cache and setting to logged out')
           clearSupabaseCache()
         }

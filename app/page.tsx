@@ -34,7 +34,7 @@ export default function HomePage() {
             </div>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            Leo's Coupon & Cashback App
+            Leo&apos;s Coupon & Cashback App
           </h1>
           <p className="text-gray-600 mb-4">
             Coupon Management und Cashback Tracking

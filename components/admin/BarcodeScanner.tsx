@@ -51,7 +51,8 @@ export default function BarcodeScanner({ onBarcodeDetected, onError }: BarcodeSc
       console.log('✅ Camera permission granted')
       
       // DANN: Video Devices laden
-      const videoDevices = await BrowserMultiFormatReader.listVideoInputDevices()
+      const videoDevices = await navigator.mediaDevices.enumerateDevices()
+        .then(devices => devices.filter(device => device.kind === 'videoinput'))
       console.log('📷 Found devices:', videoDevices.length)
       
       setDevices(videoDevices)
@@ -103,7 +104,7 @@ export default function BarcodeScanner({ onBarcodeDetected, onError }: BarcodeSc
       setError(null)
       setIsScanning(true)
       
-      const deviceId = selectedDevice || undefined
+      const deviceId = selectedDevice || null
       
       await codeReaderRef.current.decodeFromVideoDevice(
         deviceId,

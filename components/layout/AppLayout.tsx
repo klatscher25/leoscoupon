@@ -22,7 +22,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
             </div>
           </div>
           <h1 className="text-xl font-semibold text-gray-900 mb-2">
-            Leo's Coupon App
+            Leo&apos;s Coupon App
           </h1>
           <LoadingSpinner />
         </div>

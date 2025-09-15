@@ -97,7 +97,7 @@ export default function RegisterPage() {
             Konto erstellen
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Registriere dich für Leo's Coupon App
+            Registriere dich für Leo&apos;s Coupon App
           </p>
         </div>
 

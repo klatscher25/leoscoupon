@@ -50,7 +50,7 @@ export default function Navigation() {
             <div className="w-8 h-8 bg-primary-600 rounded-lg flex items-center justify-center text-white font-bold text-sm">
               L
             </div>
-            <span className="ml-2 text-lg font-semibold text-gray-900">Leo's Coupons</span>
+            <span className="ml-2 text-lg font-semibold text-gray-900">Leo&apos;s Coupons</span>
           </div>
           <button
             type="button"
@@ -78,7 +78,7 @@ export default function Navigation() {
                     L
                   </div>
                   <div className="ml-3">
-                    <div className="text-base font-semibold text-gray-900">Leo's Coupons</div>
+                    <div className="text-base font-semibold text-gray-900">Leo&apos;s Coupons</div>
                     <div className="text-sm text-gray-500">{profile?.username}</div>
                   </div>
                 </div>
@@ -136,7 +136,7 @@ export default function Navigation() {
               L
             </div>
             <div className="ml-3">
-              <div className="text-lg font-semibold text-gray-900">Leo's Coupons</div>
+              <div className="text-lg font-semibold text-gray-900">Leo&apos;s Coupons</div>
               <div className="text-sm text-gray-500">{profile?.username}</div>
             </div>
           </div>

@@ -14,7 +14,7 @@ export default function ClearCachePage() {
 
   const handleClearCache = () => {
     const success = clearSupabaseCache()
-    setCacheCleared(success)
+    setCacheCleared(success || false)
     
     if (success) {
       setTimeout(() => {

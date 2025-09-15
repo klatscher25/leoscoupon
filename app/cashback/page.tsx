@@ -234,7 +234,7 @@ export default function CashbackPage() {
               <div key={submission.id} className="card p-4">
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center space-x-3">
-                    <StatusIcon status={submission.status} />
+                    <StatusIcon status={submission.status || 'entwurf'} />
                     <div>
                       <h3 className="font-semibold text-gray-900">{submission.product_name}</h3>
                       {submission.brand && (
@@ -247,8 +247,8 @@ export default function CashbackPage() {
                     <div className="font-semibold text-lg text-gray-900">
                       {formatCurrency(submission.amount)}
                     </div>
-                    <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${CASHBACK_STATUS[submission.status].color}`}>
-                      {CASHBACK_STATUS[submission.status].icon} {CASHBACK_STATUS[submission.status].label}
+                     <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${CASHBACK_STATUS[submission.status || 'entwurf'].color}`}>
+                       {CASHBACK_STATUS[submission.status || 'entwurf'].icon} {CASHBACK_STATUS[submission.status || 'entwurf'].label}
                     </div>
                   </div>
                 </div>
