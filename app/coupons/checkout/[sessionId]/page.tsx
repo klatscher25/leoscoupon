@@ -65,11 +65,12 @@ const CheckoutPage = () => {
   const [cumulativeMultipliers, setCumulativeMultipliers] = useState<CumulativeMultipliers | null>(null);
   const [screenWakeLock, setScreenWakeLock] = useState<any>(null);
   const [barcodeType, setBarcodeType] = useState<'barcode' | 'qr'>('barcode');
+  const [isLandscape, setIsLandscape] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const supabase = createClientComponentClient();
 
-  // Auto-brightness and screen wake lock
+  // Auto-brightness, screen wake lock und Orientierungs-Detection
   useEffect(() => {
     const setupScreenOptimization = async () => {
       try {
@@ -82,14 +83,26 @@ const CheckoutPage = () => {
         // Try to increase brightness (limited browser support)
         if ('screen' in navigator && 'orientation' in (navigator as any).screen) {
           // Mobile devices might support this
-          document.documentElement.style.filter = 'brightness(1.2)';
+          document.documentElement.style.filter = 'brightness(1.3)';
         }
       } catch (error) {
         console.log('Screen optimization not available:', error);
       }
     };
 
+    // Orientierungs-Detection für besseres Barcode-Layout
+    const handleOrientationChange = () => {
+      setIsLandscape(window.innerWidth > window.innerHeight);
+    };
+
+    // Initial check
+    handleOrientationChange();
+    
     setupScreenOptimization();
+
+    // Event Listeners
+    window.addEventListener('resize', handleOrientationChange);
+    window.addEventListener('orientationchange', handleOrientationChange);
 
     // Cleanup on unmount
     return () => {
@@ -97,6 +110,8 @@ const CheckoutPage = () => {
         screenWakeLock.release();
       }
       document.documentElement.style.filter = '';
+      window.removeEventListener('resize', handleOrientationChange);
+      window.removeEventListener('orientationchange', handleOrientationChange);
     };
   }, []);
 
@@ -350,14 +365,14 @@ const CheckoutPage = () => {
   const generateEnhancedBarcode = (value: string) => {
     if (barcodeType === 'qr') {
       return (
-        <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
+        <div className="bg-white rounded-2xl p-8 mx-2 shadow-2xl border-4 border-gray-200">
           <div className="text-center">
-            <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
+            <div className="font-mono text-2xl font-bold mb-6 text-black tracking-wider">
               {value}
             </div>
-            {/* QR Code basierend auf Coupon-Code */}
-            <div className="flex justify-center mb-4">
-              <div className="grid grid-cols-21 gap-0 w-48 h-48 bg-white border-2 border-gray-300 p-2">
+            {/* QR Code - Mindestens 3cm x 3cm (ca. 80x80 auf Mobile) */}
+            <div className="flex justify-center mb-6">
+              <div className="grid grid-cols-21 gap-0 w-80 h-80 bg-pure-white border-4 border-gray-400 p-3" style={{ minWidth: '12rem', minHeight: '12rem' }}>
                 {Array.from({ length: 441 }, (_, i) => {
                   const row = Math.floor(i / 21);
                   const col = i % 21;
@@ -401,7 +416,7 @@ const CheckoutPage = () => {
                 })}
               </div>
             </div>
-            <div className="text-xs text-gray-500 mt-2">
+            <div className="text-sm text-gray-600 font-medium">
               QR-Code zum Scannen bereithalten
             </div>
           </div>
@@ -409,31 +424,68 @@ const CheckoutPage = () => {
       );
     }
 
-    // Standard Barcode basierend auf Coupon-Code
+    // Code-128 Barcode - Mindestens 5cm x 2cm (ca. 200x80 auf Mobile)
     return (
-      <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
+      <div className="bg-white rounded-2xl p-8 mx-2 shadow-2xl border-4 border-gray-200">
         <div className="text-center">
-          <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
+          <div className="font-mono text-2xl font-bold mb-6 text-black tracking-wider">
             {value}
           </div>
-          <div className="flex justify-center space-x-px mb-4">
-            {/* EAN13-ähnliches Barcode Pattern basierend auf Coupon-Code */}
-            {Array.from({ length: 40 }, (_, i) => {
-              const codePattern = generateCodePattern(value);
-              const charCode = value.charCodeAt(i % value.length) || 48; // Default to '0' if no char
-              const width = ((codePattern + charCode + i) % 4) === 0 ? 'w-1' : 
-                           ((codePattern + charCode + i) % 4) === 1 ? 'w-0.5' : 'w-px';
-              
-              return (
-                <div
-                  key={i}
-                  className={`bg-black ${width} h-20`}
-                />
-              );
-            })}
+          
+          {/* Code-128 Barcode - Optimiert für Scanner */}
+          <div className={`flex justify-center mb-6 bg-pure-white p-4 border-4 border-gray-400 ${
+            isLandscape ? 'w-full' : ''
+          }`} style={{ 
+            minWidth: isLandscape ? '90vw' : '20rem',
+            maxWidth: isLandscape ? '95vw' : '24rem'
+          }}>
+            <div className="flex justify-center space-x-0" style={{ 
+              width: '100%', 
+              maxWidth: isLandscape ? '90vw' : '24rem' 
+            }}>
+              {/* Code-128 Pattern basierend auf Coupon-Code */}
+              {Array.from({ length: isLandscape ? 120 : 68 }, (_, i) => {
+                const codePattern = generateCodePattern(value);
+                const charCode = value.charCodeAt(i % value.length) || 48;
+                
+                // Code-128 spezifische Breiten-Pattern (1-4 Module)
+                const modulePattern = ((codePattern + charCode + i) % 8);
+                let width = isLandscape ? '4px' : '2px'; // Größer im Querformat
+                
+                if (modulePattern === 0 || modulePattern === 1) width = isLandscape ? '2px' : '1px';      // Schmal
+                else if (modulePattern === 2 || modulePattern === 3) width = isLandscape ? '4px' : '2px'; // Medium  
+                else if (modulePattern === 4 || modulePattern === 5) width = isLandscape ? '6px' : '3px'; // Breit
+                else width = isLandscape ? '8px' : '4px';                                                  // Extra breit
+                
+                return (
+                  <div
+                    key={i}
+                    className="bg-black"
+                    style={{
+                      width: width,
+                      height: isLandscape ? '100px' : '80px', // Höher im Querformat
+                      minHeight: isLandscape ? '80px' : '60px'
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
-          <div className="text-xs text-gray-500 mt-2">
-            Barcode zum Scannen bereithalten
+          
+          <div className="text-sm text-gray-600 font-medium">
+            Code-128 Barcode zum Scannen bereithalten
+          </div>
+          
+          {/* Landscape Hint */}
+          <div className={`mt-4 text-xs rounded-lg p-3 ${
+            isLandscape 
+              ? 'text-green-700 bg-green-50 border border-green-200' 
+              : 'text-blue-600 bg-blue-50 border border-blue-200'
+          }`}>
+            {isLandscape 
+              ? '✅ Optimaler Scan-Modus: Querformat aktiv!' 
+              : '💡 Tipp: Drehe dein Handy ins Querformat für besseres Scannen'
+            }
           </div>
         </div>
       </div>
