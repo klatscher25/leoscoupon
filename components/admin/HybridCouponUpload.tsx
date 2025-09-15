@@ -35,6 +35,8 @@ export default function HybridCouponUpload({
   const [analyzing, setAnalyzing] = useState(false)
   const [analysisStatus, setAnalysisStatus] = useState<string>('')
   const [detectionResult, setDetectionResult] = useState<CouponDetectionResult | null>(null)
+  const [debugInfo, setDebugInfo] = useState<string[]>([])
+  const [showDebugInfo, setShowDebugInfo] = useState(false)
   
   const fileInputRef = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -94,16 +96,39 @@ export default function HybridCouponUpload({
     
     setAnalyzing(true)
     setAnalysisStatus('🎯 Starte intelligente Coupon-Analyse...')
+    setDebugInfo([])
     
     try {
-      const result = await hybridSystem.current.processCoupon(imageUrl)
+      // Use the new analyzeImage method with server logging
+      const result = await hybridSystem.current.analyzeImage(imageUrl)
       setDetectionResult(result)
+      
+      // Add analysis steps to debug info for visual feedback
+      const debugMessages: string[] = []
+      if (result.analysisSteps) {
+        debugMessages.push(...result.analysisSteps)
+      }
+
+      // Add structured data info
+      if (result.structuredData) {
+        debugMessages.push(`🏪 Store: ${result.structuredData.detectedStoreName || 'Not detected'}`)
+        debugMessages.push(`💰 Value: ${result.structuredData.couponValueText || 'Not detected'}`)
+        debugMessages.push(`🔢 Numeric: ${result.structuredData.couponValueNumeric || 'Not detected'}`)
+      }
+
+      // Add text info
+      if (result.text) {
+        debugMessages.push(`📝 Text extracted (${result.confidence?.toFixed(1)}% confidence)`)
+        debugMessages.push(`📝 Preview: ${result.text.substring(0, 100)}...`)
+      }
+
+      setDebugInfo(debugMessages)
       
       if (result.barcode) {
         setAnalysisStatus('✅ Barcode erfolgreich erkannt und bereinigt!')
         onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())
       } else {
-        setAnalysisStatus('📱 Barcode nicht erkannt - Original-Bild für Kassen-Scanner bereit')
+        setAnalysisStatus('❌ Barcode nicht erkannt - Original-Bild für Kassen-Scanner bereit')
       }
 
       if (result.text) {
@@ -370,6 +395,30 @@ export default function HybridCouponUpload({
                       Genauigkeit: {Math.round(detectionResult.confidence)}%
                     </p>
                   )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Debug Information (iPhone-friendly) */}
+          {debugInfo.length > 0 && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+              <button
+                type="button"
+                onClick={() => setShowDebugInfo(!showDebugInfo)}
+                className="flex items-center text-sm font-medium text-gray-700 mb-2 w-full"
+              >
+                <span>🔍 Debug Info ({debugInfo.length} Schritte)</span>
+                <span className="ml-auto">{showDebugInfo ? '▼' : '▶'}</span>
+              </button>
+              
+              {showDebugInfo && (
+                <div className="space-y-1 max-h-40 overflow-y-auto">
+                  {debugInfo.map((info, index) => (
+                    <div key={index} className="text-xs text-gray-600 bg-white p-2 rounded border-l-2 border-blue-200">
+                      {info}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
