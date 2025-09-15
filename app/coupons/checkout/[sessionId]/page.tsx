@@ -336,6 +336,17 @@ const CheckoutPage = () => {
     }
   };
 
+  // Generiere deterministisches Pattern basierend auf dem Coupon-Code
+  const generateCodePattern = (code: string) => {
+    let hash = 0;
+    for (let i = 0; i < code.length; i++) {
+      const char = code.charCodeAt(i);
+      hash = ((hash << 5) - hash) + char;
+      hash = hash & hash; // Convert to 32bit integer
+    }
+    return Math.abs(hash);
+  };
+
   const generateEnhancedBarcode = (value: string) => {
     if (barcodeType === 'qr') {
       return (
@@ -344,37 +355,47 @@ const CheckoutPage = () => {
             <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
               {value}
             </div>
-            {/* QR Code Simulation */}
+            {/* QR Code basierend auf Coupon-Code */}
             <div className="flex justify-center mb-4">
-              <div className="grid grid-cols-25 gap-px w-48 h-48 bg-white border border-gray-300">
-                {Array.from({ length: 625 }, (_, i) => {
-                  // Erstelle ein realistischeres QR-Code Pattern
-                  const row = Math.floor(i / 25);
-                  const col = i % 25;
+              <div className="grid grid-cols-21 gap-0 w-48 h-48 bg-white border-2 border-gray-300 p-2">
+                {Array.from({ length: 441 }, (_, i) => {
+                  const row = Math.floor(i / 21);
+                  const col = i % 21;
                   
-                  // Ecken-Marker (Position Detection Patterns)
+                  // Generiere QR-Code Pattern basierend auf Coupon-Code
+                  const codePattern = generateCodePattern(value);
+                  
+                  // Ecken-Marker (Position Detection Patterns) - 7x7 Quadrate
+                  const isTopLeftCorner = row < 7 && col < 7;
+                  const isTopRightCorner = row < 7 && col > 13;
+                  const isBottomLeftCorner = row > 13 && col < 7;
+                  
+                  // Ecken-Marker Pattern
                   const isCornerMarker = 
-                    (row < 7 && col < 7) || // Top-left
-                    (row < 7 && col > 17) || // Top-right
-                    (row > 17 && col < 7); // Bottom-left
+                    (isTopLeftCorner && (row === 0 || row === 6 || col === 0 || col === 6 || (row >= 2 && row <= 4 && col >= 2 && col <= 4))) ||
+                    (isTopRightCorner && (row === 0 || row === 6 || col === 14 || col === 20 || (row >= 2 && row <= 4 && col >= 16 && col <= 18))) ||
+                    (isBottomLeftCorner && (row === 14 || row === 20 || col === 0 || col === 6 || (row >= 16 && row <= 18 && col >= 2 && col <= 4)));
                   
                   // Timing Pattern
                   const isTimingPattern = 
-                    (row === 6 && col >= 8 && col <= 16) ||
-                    (col === 6 && row >= 8 && row <= 16);
+                    (row === 6 && col >= 8 && col <= 12 && col % 2 === 0) ||
+                    (col === 6 && row >= 8 && row <= 12 && row % 2 === 0);
                   
-                  // Daten-Bereich mit semi-realistischem Pattern
-                  const isDataBlack = 
+                  // Daten-Pattern basierend auf Coupon-Code
+                  const dataPattern = (codePattern + row * 21 + col) % 3 === 0;
+                  
+                  const shouldBeBlack = 
                     isCornerMarker ||
                     isTimingPattern ||
-                    (row + col + Math.floor(i / 3)) % 3 === 0;
+                    (dataPattern && !isTopLeftCorner && !isTopRightCorner && !isBottomLeftCorner && row !== 6 && col !== 6);
                   
                   return (
                     <div
                       key={i}
                       className={`w-full h-full ${
-                        isDataBlack ? 'bg-black' : 'bg-white'
+                        shouldBeBlack ? 'bg-black' : 'bg-white'
                       }`}
+                      style={{ aspectRatio: '1' }}
                     />
                   );
                 })}
@@ -388,25 +409,28 @@ const CheckoutPage = () => {
       );
     }
 
-    // Standard Barcode
+    // Standard Barcode basierend auf Coupon-Code
     return (
       <div className="bg-white rounded-xl p-6 mx-4 shadow-lg border-2 border-gray-100">
         <div className="text-center">
           <div className="font-mono text-xl font-bold mb-4 text-black tracking-wider">
             {value}
           </div>
-          <div className="flex justify-center space-x-1 mb-4">
-            {Array.from({ length: 40 }, (_, i) => (
-              <div
-                key={i}
-                className={`bg-black ${
-                  Math.random() > 0.4 ? 'w-1' : 'w-0.5'
-                } h-20`}
-                style={{
-                  height: Math.random() > 0.7 ? '80px' : '60px'
-                }}
-              />
-            ))}
+          <div className="flex justify-center space-x-px mb-4">
+            {/* EAN13-ähnliches Barcode Pattern basierend auf Coupon-Code */}
+            {Array.from({ length: 40 }, (_, i) => {
+              const codePattern = generateCodePattern(value);
+              const charCode = value.charCodeAt(i % value.length) || 48; // Default to '0' if no char
+              const width = ((codePattern + charCode + i) % 4) === 0 ? 'w-1' : 
+                           ((codePattern + charCode + i) % 4) === 1 ? 'w-0.5' : 'w-px';
+              
+              return (
+                <div
+                  key={i}
+                  className={`bg-black ${width} h-20`}
+                />
+              );
+            })}
           </div>
           <div className="text-xs text-gray-500 mt-2">
             Barcode zum Scannen bereithalten
