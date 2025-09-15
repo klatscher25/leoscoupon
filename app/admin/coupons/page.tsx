@@ -16,6 +16,7 @@ import {
 } from '@heroicons/react/24/outline'
 import HybridCouponUpload from '@/components/admin/HybridCouponUpload'
 import GoogleDriveBatchUpload from '@/components/admin/GoogleDriveBatchUpload'
+import GoogleVisionDebug from '@/components/admin/GoogleVisionDebug'
 import BarcodeScanner from '@/components/admin/BarcodeScanner'
 import CameraDiagnostics from '@/components/admin/CameraDiagnostics'
 import { Database } from '@/lib/database.types'
@@ -637,7 +638,7 @@ export default function AdminCouponsPage() {
                     >
                       <PhotoIcon className="h-6 w-6 mx-auto mb-1" />
                       <div className="text-xs font-medium">Foto Upload</div>
-                      <div className="text-xs text-gray-500">KI + Fallback</div>
+                      <div className="text-xs text-gray-500">Google Vision KI</div>
                     </button>
                     
                     <button
@@ -679,6 +680,9 @@ export default function AdminCouponsPage() {
                     />
                   </div>
                 )}
+
+                {/* Google Vision Debug Console */}
+                <GoogleVisionDebug googleVisionApiKey={GOOGLE_VISION_API_KEY} />
 
                 {/* Hybrid Coupon Upload Section */}
                 {inputMethod === 'photo' && (

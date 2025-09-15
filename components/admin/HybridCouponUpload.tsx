@@ -118,66 +118,68 @@ export default function HybridCouponUpload({
       let finalResult: any = null
       let useGoogleVision = false
       
-      // Step 1: Try Google Vision first if available and enabled
-      if (googleVisionAnalyzer.current && googleVisionApiKey && enableGoogleVision) {
-        setAnalysisStatus('🌟 Google Vision KI-Analyse läuft...')
-        
-        try {
-          const googleResult = await googleVisionAnalyzer.current.analyzeImage(imageUrl)
-          
-          if (googleResult.success) {
-            setAnalysisStatus('✅ Google Vision erfolgreich!')
-            finalResult = googleResult
-            useGoogleVision = true
-            
-            // Call Google Vision specific callback
-            onGoogleVisionAnalyzed?.(googleResult)
-            
-            // Convert to hybrid format for backwards compatibility
-            if (googleResult.barcode) {
-              onBarcodeDetected?.(googleResult.barcode.value, googleResult.barcode.format.toLowerCase())
-            }
-            if (googleResult.text) {
-              onTextExtracted?.(googleResult.text)
-            }
-            if (googleResult.structuredData) {
-              onStructuredDataExtracted?.(googleResult.structuredData)
-            }
-          } else {
-            setAnalysisStatus('❌ Google Vision fehlgeschlagen, fallback zu lokalem System...')
-          }
-        } catch (error) {
-          console.warn('Google Vision error, falling back to local analysis:', error)
-          setAnalysisStatus('⚠️ Google Vision Fehler, versuche lokale Analyse...')
-        }
+      // Google Vision API ONLY - No fallback system
+      if (!googleVisionAnalyzer.current || !googleVisionApiKey || !enableGoogleVision) {
+        setAnalysisStatus('❌ Google Vision API Key fehlt - Bitte in .env.local konfigurieren')
+        console.error('🚨 GOOGLE VISION API KEY MISSING', {
+          hasAnalyzer: !!googleVisionAnalyzer.current,
+          hasApiKey: !!googleVisionApiKey,
+          isEnabled: enableGoogleVision
+        })
+        return
       }
+
+      setAnalysisStatus('🌟 Google Vision KI-Analyse läuft...')
+      console.log('🚀 STARTING GOOGLE VISION ANALYSIS', {
+        imageUrl: imageUrl.substring(0, 100),
+        hasApiKey: !!googleVisionApiKey,
+        apiKeyPrefix: googleVisionApiKey?.substring(0, 10) + '...'
+      })
       
-      // Step 2: Use hybrid system if Google Vision failed or is not available
-      if (!finalResult) {
-        setAnalysisStatus('🔄 Lokale Hybrid-Analyse läuft...')
+      try {
+        const googleResult = await googleVisionAnalyzer.current.analyzeImage(imageUrl)
+        console.log('📊 GOOGLE VISION RESULT', googleResult)
         
-        const result = await hybridSystem.current.analyzeImage(imageUrl)
-        setDetectionResult(result)
-        finalResult = result
-        
-        if (result.success) {
-          setAnalysisStatus('✅ Lokale Analyse erfolgreich!')
+        if (googleResult.success) {
+          setAnalysisStatus('✅ Google Vision erfolgreich!')
+          finalResult = googleResult
+          useGoogleVision = true
           
-          // Callback with detected barcode
-          if (result.barcode) {
-            onBarcodeDetected?.(result.barcode.value, result.barcode.format.toLowerCase())
-          }
+          console.log('✅ GOOGLE VISION SUCCESS', {
+            barcode: googleResult.barcode?.value,
+            storeName: googleResult.structuredData?.storeName,
+            discountValue: googleResult.structuredData?.discountValue,
+            discountType: googleResult.structuredData?.discountType,
+            costs: googleResult.costs
+          })
           
-          // Callback with extracted text
-          if (result.text) {
-            onTextExtracted?.(result.text)
-          }
+          // Call Google Vision specific callback
+          onGoogleVisionAnalyzed?.(googleResult)
           
-          // Callback with structured data
-          if (result.structuredData) {
-            onStructuredDataExtracted?.(result.structuredData)
+          // Convert to hybrid format for backwards compatibility
+          if (googleResult.barcode) {
+            onBarcodeDetected?.(googleResult.barcode.value, googleResult.barcode.format.toLowerCase())
           }
+          if (googleResult.text) {
+            onTextExtracted?.(googleResult.text)
+          }
+          if (googleResult.structuredData) {
+            onStructuredDataExtracted?.(googleResult.structuredData)
+          }
+        } else {
+          setAnalysisStatus('❌ Google Vision konnte keine Coupon-Daten erkennen')
+          console.error('❌ GOOGLE VISION FAILED', {
+            success: googleResult.success,
+            confidence: googleResult.confidence,
+            structuredData: googleResult.structuredData,
+            costs: googleResult.costs
+          })
+          finalResult = googleResult // Still use the result for debugging
         }
+      } catch (error) {
+        console.error('💥 GOOGLE VISION ERROR', error)
+        setAnalysisStatus('❌ Google Vision Fehler: ' + (error as Error).message)
+        // Don't set finalResult, so debug info shows the error
       }
       
       // Build debug info

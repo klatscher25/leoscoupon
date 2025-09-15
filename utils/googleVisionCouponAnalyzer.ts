@@ -70,6 +70,12 @@ export class GoogleVisionCouponAnalyzer {
    */
   async analyzeImage(imageUrl: string): Promise<GoogleVisionCouponResult> {
     const startTime = Date.now()
+    console.log('🌟 GOOGLE VISION COUPON ANALYSIS starting', {
+      imageUrl: imageUrl.substring(0, 100),
+      timestamp: new Date().toISOString(),
+      apiKeyConfigured: !!this.config.apiKey,
+      apiKeyPrefix: this.config.apiKey?.substring(0, 10) + '...'
+    })
     ServerLogger.info('🌟 GOOGLE VISION COUPON ANALYSIS starting', imageUrl.substring(0, 100))
 
     const result: GoogleVisionCouponResult = {
@@ -89,17 +95,41 @@ export class GoogleVisionCouponAnalyzer {
     try {
       // Check if we can use the API
       if (!this.canUseGoogleVision()) {
-        throw new Error('Google Vision API usage limits exceeded')
+        const errorMsg = 'Google Vision API usage limits exceeded'
+        console.error('🚫 GOOGLE VISION BLOCKED', {
+          dailyUsage: this.currentDayUsage,
+          dailyLimit: this.costLimits.maxDailyRequests,
+          monthlyUsage: this.currentMonthUsage,
+          monthlyBudget: this.costLimits.maxMonthlyBudget
+        })
+        throw new Error(errorMsg)
       }
 
+      console.log('🔄 Converting image to base64...', { imageUrl: imageUrl.substring(0, 50) })
       // Convert image to base64
       const base64Image = await this.imageToBase64(imageUrl)
+      console.log('✅ Image converted to base64', { 
+        base64Length: base64Image.length,
+        base64Preview: base64Image.substring(0, 50) + '...'
+      })
       
       // Run comprehensive analysis
+      console.log('🔄 Starting Google Vision API calls...', {
+        textDetection: 'DOCUMENT_TEXT_DETECTION + TEXT_DETECTION',
+        barcodeDetection: 'TEXT_DETECTION (pattern matching)'
+      })
+      
       const [textResult, barcodeResult] = await Promise.allSettled([
         this.performTextDetection(base64Image),
         this.performBarcodeDetection(base64Image)
       ])
+      
+      console.log('📊 Google Vision API results:', {
+        textStatus: textResult.status,
+        barcodeStatus: barcodeResult.status,
+        textSuccess: textResult.status === 'fulfilled' && textResult.value,
+        barcodeSuccess: barcodeResult.status === 'fulfilled' && barcodeResult.value
+      })
 
       // Calculate costs
       result.costs = {
@@ -169,6 +199,11 @@ export class GoogleVisionCouponAnalyzer {
     allTexts?: string[], 
     rawResponse?: any
   }> {
+    console.log('🔄 Calling Google Vision Text Detection API...', {
+      apiEndpoint: 'https://vision.googleapis.com/v1/images:annotate',
+      features: ['DOCUMENT_TEXT_DETECTION', 'TEXT_DETECTION']
+    })
+
     const response = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${this.config.apiKey}`, {
       method: 'POST',
       headers: {
@@ -193,9 +228,27 @@ export class GoogleVisionCouponAnalyzer {
       })
     })
 
+    console.log('📡 Google Vision API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok,
+      headers: Object.fromEntries(response.headers.entries())
+    })
+
     const data = await response.json()
+    console.log('📋 Google Vision API Data:', {
+      hasResponses: !!data.responses,
+      responseCount: data.responses?.length || 0,
+      firstResponseKeys: data.responses?.[0] ? Object.keys(data.responses[0]) : [],
+      hasError: !!data.error
+    })
     
     if (!response.ok) {
+      console.error('❌ Google Vision API Error:', {
+        status: response.status,
+        error: data.error,
+        message: data.error?.message
+      })
       throw new Error(`Google Vision API error: ${data.error?.message || 'Unknown error'}`)
     }
 
