@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@/lib/supabase';
+import { createClientComponentClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
@@ -59,7 +59,7 @@ const CouponRedeemPage = () => {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [step, setStep] = useState<'store' | 'coupons'>('store');
 
-  const supabase = createClient();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     if (!authLoading && !user) {

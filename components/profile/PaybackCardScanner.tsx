@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createClientComponentClient } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
 
 interface PaybackCardScannerProps {
@@ -21,7 +21,7 @@ const PaybackCardScanner = ({ onCardScanned, className = '' }: PaybackCardScanne
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const supabase = createClient();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     loadCurrentCard();

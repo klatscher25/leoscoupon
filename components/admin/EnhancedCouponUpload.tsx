@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { createClient } from '@/lib/supabase';
+import { createClientComponentClient } from '@/lib/supabase';
 import { GoogleVisionCouponAnalyzer, GoogleVisionCouponResult } from '@/utils/googleVisionCouponAnalyzer';
 
 interface Store {
@@ -58,7 +58,7 @@ const EnhancedCouponUpload = ({ googleVisionApiKey, onCouponSaved }: EnhancedCou
   });
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const supabase = createClient();
+  const supabase = createClientComponentClient();
 
   useEffect(() => {
     loadStores();
