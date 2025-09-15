@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import AppLayout from '@/components/layout/AppLayout'
 import { useAuth } from '@/hooks/useAuth'
 import { updateProfile } from '@/lib/auth'
@@ -13,8 +13,25 @@ export default function ProfilePage() {
   const [message, setMessage] = useState('')
   const [formData, setFormData] = useState({
     username: profile?.username || '',
-    payback_account_id: profile?.payback_account_id || ''
+    payback_account_id: profile?.payback_account_id || profile?.payback_card_code || ''
   })
+
+  // Update formData when profile changes
+  useEffect(() => {
+    setFormData({
+      username: profile?.username || '',
+      payback_account_id: profile?.payback_account_id || profile?.payback_card_code || ''
+    })
+  }, [profile])
+
+  // Handle PaybackCardScanner results
+  const handleCardScanned = (cardCode: string) => {
+    setFormData(prev => ({
+      ...prev,
+      payback_account_id: cardCode
+    }))
+    setMessage('🎉 PAYBACK-Karte erfolgreich gescannt! Vergiss nicht zu speichern.')
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,11 +41,12 @@ export default function ProfilePage() {
     try {
       await updateProfile({
         username: formData.username,
-        payback_account_id: formData.payback_account_id || null
+        payback_account_id: formData.payback_account_id || null,
+        payback_card_code: formData.payback_account_id || null  // Synchronisiere beide Felder
       })
-      setMessage('Profil erfolgreich aktualisiert')
+      setMessage('✅ Profil erfolgreich aktualisiert')
     } catch (error: any) {
-      setMessage('Fehler beim Aktualisieren: ' + error.message)
+      setMessage('❌ Fehler beim Aktualisieren: ' + error.message)
     } finally {
       setLoading(false)
     }
@@ -76,16 +94,17 @@ export default function ProfilePage() {
               </div>
 
               <div>
-                <label className="label">Payback-Nummer (optional)</label>
+                <label className="label">Payback-Nummer</label>
                 <input
                   type="text"
                   className="input"
                   value={formData.payback_account_id}
                   onChange={(e) => setFormData({...formData, payback_account_id: e.target.value})}
-                  placeholder="z.B. 1234567890"
+                  placeholder="z.B. 1234567890123456"
+                  maxLength={16}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Wird für Coupon-Einlösungs-Limits verwendet
+                  💡 Du kannst die Nummer auch unten per Kamera scannen oder manuell eingeben
                 </p>
               </div>
 
@@ -138,7 +157,7 @@ export default function ProfilePage() {
           </div>
 
           {/* PAYBACK Card Scanner */}
-          <PaybackCardScanner />
+          <PaybackCardScanner onCardScanned={handleCardScanned} />
 
           {/* Banking Info Placeholder */}
           <div className="card p-6">
